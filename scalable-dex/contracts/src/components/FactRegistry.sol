@@ -3,6 +3,16 @@ pragma solidity ^0.6.12;
 
 import "../interfaces/IQueryableFactRegistry.sol";
 
+/*
+❯ forge inspect evm-verifier/solidity/contracts/components/FactRegistry.sol:FactRegistry abi
+╭----------+-----------------------------------------+------------╮
+| Type     | Signature                               | Selector   |
++=================================================================+
+| function | hasRegisteredFact() view returns (bool) | 0xd6354e15 |
+|----------+-----------------------------------------+------------|
+| function | isValid(bytes32) view returns (bool)    | 0x6a938567 |
+╰----------+-----------------------------------------+------------╯
+*/
 contract FactRegistry is IQueryableFactRegistry {
     // Mapping: fact hash -> true.
     mapping(bytes32 => bool) private verifiedFact;

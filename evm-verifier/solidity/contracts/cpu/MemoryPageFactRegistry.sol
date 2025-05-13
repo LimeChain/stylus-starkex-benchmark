@@ -20,10 +20,38 @@ contract MemoryPageFactRegistryConstants {
   (see MemoryPageFactRegistryConstants).
   The fact consists of (pageType, prime, n, z, alpha, prod, memoryHash, address).
   Note that address is only available for CONTINUOUS_PAGE, and otherwise it is 0.
+
+  forge inspect evm-verifier/solidity/contracts/cpu/MemoryPageFactRegistry.sol:MemoryPageFactRegistry abi
+╭----------+----------------------------------------------------------------------------------------------------------------------+--------------------------------------------------------------------╮
+| Type     | Signature                                                                                                            | Selector                                                           |
++======================================================================================================================================================================================================+
+| event    | LogMemoryPageFactContinuous(bytes32,uint256,uint256)                                                                 | 0xb8b9c39aeba1cfd98c38dfeebe11c2f7e02b334cbe9f05f22b442a5d9c1ea0c5 |
+|----------+----------------------------------------------------------------------------------------------------------------------+--------------------------------------------------------------------|
+| event    | LogMemoryPageFactRegular(bytes32,uint256,uint256)                                                                    | 0x98fd0d40bd3e226c28fb29ff2d386bd8f9e19f2f8436441e6b854651d3b687b3 |
+|----------+----------------------------------------------------------------------------------------------------------------------+--------------------------------------------------------------------|
+| function | hasRegisteredFact() view returns (bool)                                                                              | 0xd6354e15                                                         |
+|----------+----------------------------------------------------------------------------------------------------------------------+--------------------------------------------------------------------|
+| function | isValid(bytes32) view returns (bool)                                                                                 | 0x6a938567                                                         |
+|----------+----------------------------------------------------------------------------------------------------------------------+--------------------------------------------------------------------|
+| function | registerContinuousMemoryPage(uint256,uint256[],uint256,uint256,uint256) nonpayable returns (bytes32,uint256,uint256) | 0x5578ceae                                                         |
+|----------+----------------------------------------------------------------------------------------------------------------------+--------------------------------------------------------------------|
+| function | registerRegularMemoryPage(uint256[],uint256,uint256,uint256) nonpayable returns (bytes32,uint256,uint256)            | 0x405a6362                                                         |
+╰----------+----------------------------------------------------------------------------------------------------------------------+--------------------------------------------------------------------╯
 */
-contract MemoryPageFactRegistry is FactRegistry, MemoryPageFactRegistryConstants {
-    event LogMemoryPageFactRegular(bytes32 factHash, uint256 memoryHash, uint256 prod);
-    event LogMemoryPageFactContinuous(bytes32 factHash, uint256 memoryHash, uint256 prod);
+contract MemoryPageFactRegistry is
+    FactRegistry,
+    MemoryPageFactRegistryConstants
+{
+    event LogMemoryPageFactRegular(
+        bytes32 factHash,
+        uint256 memoryHash,
+        uint256 prod
+    );
+    event LogMemoryPageFactContinuous(
+        bytes32 factHash,
+        uint256 memoryHash,
+        uint256 prod
+    );
 
     /*
       Registers a fact based of the given memory (address, value) pairs (REGULAR_PAGE).
@@ -33,20 +61,21 @@ contract MemoryPageFactRegistry is FactRegistry, MemoryPageFactRegistryConstants
         uint256 z,
         uint256 alpha,
         uint256 prime
-    )
-        external
-        returns (
-            bytes32 factHash,
-            uint256 memoryHash,
-            uint256 prod
-        )
-    {
+    ) external returns (bytes32 factHash, uint256 memoryHash, uint256 prod) {
         // Ensure 'memoryPairs.length' is bounded as a sanity check (the bound is somewhat arbitrary).
-        require(memoryPairs.length < 2**20, "Too many memory values.");
-        require(memoryPairs.length % 2 == 0, "Size of memoryPairs must be even.");
+        require(memoryPairs.length < 2 ** 20, "Too many memory values.");
+        require(
+            memoryPairs.length % 2 == 0,
+            "Size of memoryPairs must be even."
+        );
         require(z < prime, "Invalid value of z.");
         require(alpha < prime, "Invalid value of alpha.");
-        (factHash, memoryHash, prod) = computeFactHash(memoryPairs, z, alpha, prime);
+        (factHash, memoryHash, prod) = computeFactHash(
+            memoryPairs,
+            z,
+            alpha,
+            prime
+        );
         emit LogMemoryPageFactRegular(factHash, memoryHash, prod);
 
         registerFact(factHash);
@@ -60,11 +89,7 @@ contract MemoryPageFactRegistry is FactRegistry, MemoryPageFactRegistryConstants
     )
         private
         pure
-        returns (
-            bytes32 factHash,
-            uint256 memoryHash,
-            uint256 prod
-        )
+        returns (bytes32 factHash, uint256 memoryHash, uint256 prod)
     {
         uint256 memorySize = memoryPairs.length / 2; // NOLINT: divide-before-multiply.
 
@@ -92,7 +117,11 @@ contract MemoryPageFactRegistry is FactRegistry, MemoryPageFactRegistryConstants
                     ),
                     prime
                 )
-                prod := mulmod(prod, add(z, sub(prime, address_value_lin_comb)), prime)
+                prod := mulmod(
+                    prod,
+                    add(z, sub(prime, address_value_lin_comb)),
+                    prime
+                )
             }
 
             memoryHash := keccak256(
@@ -130,20 +159,19 @@ contract MemoryPageFactRegistry is FactRegistry, MemoryPageFactRegistryConstants
         uint256 z,
         uint256 alpha,
         uint256 prime
-    )
-        public
-        returns (
-            bytes32 factHash,
-            uint256 memoryHash,
-            uint256 prod
-        )
-    {
-        require(values.length < 2**20, "Too many memory values.");
-        require(prime < 2**254, "prime is too big for the optimizations in this function.");
+    ) public returns (bytes32 factHash, uint256 memoryHash, uint256 prod) {
+        require(values.length < 2 ** 20, "Too many memory values.");
+        require(
+            prime < 2 ** 254,
+            "prime is too big for the optimizations in this function."
+        );
         require(z < prime, "Invalid value of z.");
         require(alpha < prime, "Invalid value of alpha.");
         // Ensure 'startAddr' less then prime and bounded as a sanity check (the bound is somewhat arbitrary).
-        require((startAddr < prime) && (startAddr < 2**64), "Invalid value of startAddr.");
+        require(
+            (startAddr < prime) && (startAddr < 2 ** 64),
+            "Invalid value of startAddr."
+        );
 
         uint256 nValues = values.length;
 
@@ -169,9 +197,22 @@ contract MemoryPageFactRegistry is FactRegistry, MemoryPageFactRegistryConstants
                 prod := mulmod(
                     prod,
                     mulmod(
-                        add(add(sub(addr, 7), mulmod(mload(valuesPtr), alpha, prime)), minus_z),
                         add(
-                            add(sub(addr, 6), mulmod(mload(add(valuesPtr, 0x20)), alpha, prime)),
+                            add(
+                                sub(addr, 7),
+                                mulmod(mload(valuesPtr), alpha, prime)
+                            ),
+                            minus_z
+                        ),
+                        add(
+                            add(
+                                sub(addr, 6),
+                                mulmod(
+                                    mload(add(valuesPtr, 0x20)),
+                                    alpha,
+                                    prime
+                                )
+                            ),
                             minus_z
                         ),
                         prime
@@ -183,11 +224,25 @@ contract MemoryPageFactRegistry is FactRegistry, MemoryPageFactRegistryConstants
                     prod,
                     mulmod(
                         add(
-                            add(sub(addr, 5), mulmod(mload(add(valuesPtr, 0x40)), alpha, prime)),
+                            add(
+                                sub(addr, 5),
+                                mulmod(
+                                    mload(add(valuesPtr, 0x40)),
+                                    alpha,
+                                    prime
+                                )
+                            ),
                             minus_z
                         ),
                         add(
-                            add(sub(addr, 4), mulmod(mload(add(valuesPtr, 0x60)), alpha, prime)),
+                            add(
+                                sub(addr, 4),
+                                mulmod(
+                                    mload(add(valuesPtr, 0x60)),
+                                    alpha,
+                                    prime
+                                )
+                            ),
                             minus_z
                         ),
                         prime
@@ -199,11 +254,25 @@ contract MemoryPageFactRegistry is FactRegistry, MemoryPageFactRegistryConstants
                     prod,
                     mulmod(
                         add(
-                            add(sub(addr, 3), mulmod(mload(add(valuesPtr, 0x80)), alpha, prime)),
+                            add(
+                                sub(addr, 3),
+                                mulmod(
+                                    mload(add(valuesPtr, 0x80)),
+                                    alpha,
+                                    prime
+                                )
+                            ),
                             minus_z
                         ),
                         add(
-                            add(sub(addr, 2), mulmod(mload(add(valuesPtr, 0xa0)), alpha, prime)),
+                            add(
+                                sub(addr, 2),
+                                mulmod(
+                                    mload(add(valuesPtr, 0xa0)),
+                                    alpha,
+                                    prime
+                                )
+                            ),
                             minus_z
                         ),
                         prime
@@ -215,10 +284,27 @@ contract MemoryPageFactRegistry is FactRegistry, MemoryPageFactRegistryConstants
                     prod,
                     mulmod(
                         add(
-                            add(sub(addr, 1), mulmod(mload(add(valuesPtr, 0xc0)), alpha, prime)),
+                            add(
+                                sub(addr, 1),
+                                mulmod(
+                                    mload(add(valuesPtr, 0xc0)),
+                                    alpha,
+                                    prime
+                                )
+                            ),
                             minus_z
                         ),
-                        add(add(addr, mulmod(mload(add(valuesPtr, 0xe0)), alpha, prime)), minus_z),
+                        add(
+                            add(
+                                addr,
+                                mulmod(
+                                    mload(add(valuesPtr, 0xe0)),
+                                    alpha,
+                                    prime
+                                )
+                            ),
+                            minus_z
+                        ),
                         prime
                     ),
                     prime
@@ -240,7 +326,11 @@ contract MemoryPageFactRegistry is FactRegistry, MemoryPageFactRegistryConstants
                     mulmod(mload(valuesPtr), alpha, prime),
                     prime
                 )
-                prod := mulmod(prod, add(z, sub(prime, address_value_lin_comb)), prime)
+                prod := mulmod(
+                    prod,
+                    add(z, sub(prime, address_value_lin_comb)),
+                    prime
+                )
                 valuesPtr := add(valuesPtr, 0x20)
             }
 
@@ -248,7 +338,16 @@ contract MemoryPageFactRegistry is FactRegistry, MemoryPageFactRegistryConstants
         }
 
         factHash = keccak256(
-            abi.encodePacked(CONTINUOUS_PAGE, prime, nValues, z, alpha, prod, memoryHash, startAddr)
+            abi.encodePacked(
+                CONTINUOUS_PAGE,
+                prime,
+                nValues,
+                z,
+                alpha,
+                prod,
+                memoryHash,
+                startAddr
+            )
         );
 
         emit LogMemoryPageFactContinuous(factHash, memoryHash, prod);
