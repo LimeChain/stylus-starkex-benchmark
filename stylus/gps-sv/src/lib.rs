@@ -2,27 +2,13 @@
 //! GPS Statement Verifier
 //!
 //! The following contract implements the GPS statement verifier example from Foundry.
-//!
-//! ```solidity
-//! contract GpsStatementVerifier {
-//!     uint256 public number;
-//!     function setNumber(uint256 newNumber) public {
-//!         number = newNumber;
-//!     }
-//!     function increment() public {
-//!         number++;
-//!     }
-//! }
-//! ```
-//!
-//! The program is ABI-equivalent with Solidity, which means you can call it from both Solidity and Rust.
-//! To do this, run `cargo stylus export-abi`.
-//!
-//! Note: this code is a template-only and has not been audited.
-//!
-// Allow `cargo stylus export-abi` to generate a main function.
 #![cfg_attr(not(any(test, feature = "export-abi")), no_main)]
 extern crate alloc;
+
+mod bootloader;
+
+use bootloader::BootloaderCompiledProgram;
+use offsets::{page_info, public_input_offsets};
 
 /// Import items from the SDK. The prelude contains common traits and macros.
 use stylus_sdk::{
@@ -31,14 +17,7 @@ use stylus_sdk::{
     prelude::*,
     storage::*,
 };
-// Define some persistent storage using the Solidity ABI.
-// `Counter` will be the entrypoint.
-// sol_storage! {
-//     #[entrypoint]
-//     pub struct GpsStatementVerifier {
-//         uint256 number;
-//     }
-// }
+
 macro_rules! require {
     ($cond:expr, $msg:expr) => {
         if !$cond {
@@ -56,9 +35,9 @@ sol_interface! {
         function getLayoutInfo() external view returns (uint256 publicMemoryOffset, uint256 selectedBuiltins);
     }
 
-    interface IBootloaderProgram {
-        function getCompiledProgram() external pure returns (uint256[542] memory);
-    }
+    // interface IBootloaderProgram {
+    //     function getCompiledProgram() external pure returns (uint256[542] memory);
+    // }
 }
 
 #[storage]
@@ -68,12 +47,16 @@ pub struct GpsStatementVerifier {
     initialized: StorageBool,
     memory_page_fact_registry: StorageAddress,
     bootloader_program: StorageAddress,
-    hashed_supported_cairo_verifiers: StorageU256,
+    hashed_supported_verifiers: StorageU256,
     simple_bootloader_program_hash: StorageU256,
-    cairo_verifiers: StorageVec<StorageAddress>,
+    verifiers: StorageVec<StorageAddress>,
 }
 
+impl BootloaderCompiledProgram for GpsStatementVerifier {}
+
 // sol_storage! {
+// contract size: 15.8 KB (15815 bytes)
+// wasm size: 51.7 KB (51656 bytes)
 //     #[entrypoint]
 //     pub struct GpsSV {
 //         bool initialized;
@@ -94,8 +77,8 @@ impl GpsStatementVerifier {
         &mut self,
         bootloader_program: Address,
         memory_page_fact_registry: Address,
-        cairo_verifiers: Vec<Address>,
-        hashed_supported_cairo_verifiers: U256,
+        verifiers: Vec<Address>,
+        hashed_supported_verifiers: U256,
         simple_bootloader_program_hash: U256,
     ) -> Result<(), Vec<u8>> {
         // fail if it has already run
@@ -104,14 +87,14 @@ impl GpsStatementVerifier {
         self.bootloader_program.set(bootloader_program);
         self.memory_page_fact_registry
             .set(memory_page_fact_registry);
-        self.hashed_supported_cairo_verifiers
-            .set(hashed_supported_cairo_verifiers);
+        self.hashed_supported_verifiers
+            .set(hashed_supported_verifiers);
         self.simple_bootloader_program_hash
             .set(simple_bootloader_program_hash);
 
         // copy verifier list
-        for addr in cairo_verifiers {
-            self.cairo_verifiers.push(addr);
+        for addr in verifiers {
+            self.verifiers.push(addr);
         }
 
         self.initialized.set(true);
@@ -123,24 +106,24 @@ impl GpsStatementVerifier {
         proof: Vec<U256>,
         task_metadata: Vec<U256>,
         cairo_aux_input: Vec<U256>,
-        cairo_verifier_id: U256,
+        verifier_id: U256,
     ) -> Result<(), Vec<u8>> {
         // fail if it has not been initialized
         require!(self.initialized.get(), "not initialized");
 
-        let verifier_id_usize: usize = match cairo_verifier_id.try_into() {
+        let verifier_id_usize: usize = match verifier_id.try_into() {
             Ok(val) => val,
-            Err(_) => return Err("cairoVerifierId does not fit in usize".as_bytes().to_vec()),
+            Err(_) => return Err("Verifier Id does not fit in usize".as_bytes().to_vec()),
         };
 
         require!(
-            verifier_id_usize < self.cairo_verifiers.len(),
+            verifier_id_usize < self.verifiers.len(),
             "cairoVerifierId is out of range."
         );
         let cairo_public_input: &[U256] = &cairo_aux_input[..cairo_aux_input.len() - 2];
 
         let verifier_call_result =
-            ICairoVerifierContract::new(self.cairo_verifiers.get(verifier_id_usize).unwrap())
+            ICairoVerifierContract::new(self.verifiers.get(verifier_id_usize).unwrap())
                 .get_layout_info(&mut *self);
 
         // verifier.get_layout_info(context)
@@ -171,7 +154,7 @@ impl GpsStatementVerifier {
         // There is no 'page address' in the page info for page 0, but this 'free' slot is
         // used to store the number of pages.
         require!(
-            public_memory_pages.len() == n_pages * (PAGE_INFO_SIZE + 1),
+            public_memory_pages.len() == n_pages * (page_info::PAGE_INFO_SIZE + 1),
             "Invalid publicMemoryPages length."
         );
         let (public_memory_length, memory_hash, product) =
@@ -199,30 +182,36 @@ impl GpsStatementVerifier {
         let n_tasks: usize = task_metadata[0].try_into().unwrap();
         require!(n_tasks < 2usize.pow(30), "Invalid number of tasks.");
 
-        let public_memory_length =
-            (PROGRAM_SIZE + 2 + N_MAIN_ARGS + N_MAIN_RETURN_VALUES + 2 + 1 + 2 * n_tasks);
+        // let bootloader_program_size = Self::BOOTLOADER_PROGRAM.len();
+        let public_memory_length = (Self::BOOTLOADER_PROGRAM.len()
+            + 2
+            + N_MAIN_ARGS
+            + N_MAIN_RETURN_VALUES
+            + 2
+            + 1
+            + 2 * n_tasks);
 
         let mut public_memory: Vec<U256> = vec![U256::ZERO; public_memory_length];
         let mut offset = 0;
         // Bootloader handling starts here
         {
-            let bootloader_program_res = IBootloaderProgram::new(self.bootloader_program.get())
-                .get_compiled_program(&mut *self);
+            // let bootloader_program_res = IBootloaderProgram::new(self.bootloader_program.get())
+            //     .get_compiled_program(&mut *self);
 
-            let bootloader_program = match bootloader_program_res {
-                Ok(val) => val,
-                Err(_e) => return Err("Failed to get compiled program".as_bytes().to_vec()),
-            };
+            // let bootloader_program = match bootloader_program_res {
+            //     Ok(val) => val,
+            //     Err(_e) => return Err("Failed to get compiled program".as_bytes().to_vec()),
+            // };
 
-            for i in 0..PROGRAM_SIZE {
-                public_memory[offset] = U256::from(i + INITIAL_PC);
-                public_memory[offset + 1] = bootloader_program[i];
+            for i in 0..Self::BOOTLOADER_PROGRAM.len() {
+                public_memory[offset] = U256::from(i + public_input_offsets::INITIAL_PC);
+                public_memory[offset + 1] = Self::BOOTLOADER_PROGRAM[i];
                 offset += 2;
             }
         }
 
         {
-            let initial_fp = aux_input[OFFSET_EXECUTION_BEGIN_ADDR];
+            let initial_fp = aux_input[public_input_offsets::OFFSET_EXECUTION_BEGIN_ADDR];
             require!(
                 initial_fp.gt(&U256::from(2)),
                 "Invalid execution begin address."
@@ -235,8 +224,8 @@ impl GpsStatementVerifier {
             offset += 4;
 
             let return_values_address =
-                aux_input[OFFSET_EXECUTION_STOP_PTR] - U256::from(N_BUILTINS);
-            let mut builtin_segment_info_offset = OFFSET_OUTPUT_BEGIN_ADDR;
+                aux_input[public_input_offsets::OFFSET_EXECUTION_STOP_PTR] - U256::from(N_BUILTINS);
+            let mut builtin_segment_info_offset = public_input_offsets::OFFSET_OUTPUT_BEGIN_ADDR;
 
             for i in 0..N_BUILTINS {
                 // Write argument address.
@@ -266,19 +255,20 @@ impl GpsStatementVerifier {
                 *selected_builtins == U256::ZERO,
                 "SELECTED_BUILTINS_VECTOR_IS_TOO_LONG"
             );
+
             // Skip the return values which were already written.
             offset += 2 * N_BUILTINS;
         }
 
         // Program output.
         {
-            let mut output_address = aux_input[OFFSET_OUTPUT_BEGIN_ADDR];
+            let mut output_address = aux_input[public_input_offsets::OFFSET_OUTPUT_BEGIN_ADDR];
             // Force that memory[outputAddress] and memory[outputAddress + 1] contain the
             // bootloader config (which is 2 words size).
             public_memory[offset + 0] = output_address;
             public_memory[offset + 1] = self.simple_bootloader_program_hash.get();
             public_memory[offset + 2] = output_address + U256::from(1);
-            public_memory[offset + 3] = self.hashed_supported_cairo_verifiers.get();
+            public_memory[offset + 3] = self.hashed_supported_verifiers.get();
             // Force that memory[outputAddress + 2] = nTasks.
             public_memory[offset + 4] = output_address + U256::from(2);
             public_memory[offset + 5] = U256::from(n_tasks);
@@ -316,7 +306,7 @@ impl GpsStatementVerifier {
                 );
 
                 require!(
-                    aux_input[OFFSET_OUTPUT_STOP_PTR] == output_address,
+                    aux_input[public_input_offsets::OFFSET_OUTPUT_STOP_PTR] == output_address,
                     "Inconsistent program output length."
                 );
             }
@@ -339,7 +329,7 @@ impl GpsStatementVerifier {
             K_MODULUS,
         );
 
-        let (fact_hash, memory_hash, product) = match result {
+        let (_, memory_hash, product) = match result {
             Ok(val) => val,
             Err(e) => return Err("Failed to register memory page".as_bytes().to_vec()),
         };
@@ -348,17 +338,10 @@ impl GpsStatementVerifier {
     }
 }
 
-const PAGE_INFO_SIZE: usize = 3;
-const PROGRAM_SIZE: usize = 542;
 const N_BUILTINS: usize = 6;
 const N_MAIN_ARGS: usize = N_BUILTINS;
 const N_MAIN_RETURN_VALUES: usize = N_BUILTINS;
 
-const INITIAL_PC: usize = 1;
-const OFFSET_EXECUTION_BEGIN_ADDR: usize = 6;
-const OFFSET_EXECUTION_STOP_PTR: usize = 7;
-const OFFSET_OUTPUT_BEGIN_ADDR: usize = 8;
-const OFFSET_OUTPUT_STOP_PTR: usize = 9;
 const METADATA_TASKS_OFFSET: usize = 1;
 const METADATA_OFFSET_TASK_OUTPUT_SIZE: usize = 0;
 const METADATA_OFFSET_TASK_PROGRAM_HASH: usize = 1;

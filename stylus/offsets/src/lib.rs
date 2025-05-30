@@ -1,3 +1,5 @@
+pub mod memory_map;
+
 pub mod page_info {
     pub const PAGE_INFO_SIZE: usize = 3;
     pub const PAGE_INFO_SIZE_IN_BYTES: usize = 3 * 32;
@@ -38,4 +40,30 @@ pub mod public_input_offsets {
     pub const INITIAL_PC: usize = 1;
 
     pub const FINAL_PC: usize = INITIAL_PC + 4;
+}
+
+pub trait PublicMemoryOffset {
+    fn get_public_memory_offset() -> usize;
+
+    fn get_offset_page_size(page_id: usize) -> usize {
+        Self::get_public_memory_offset() + page_info::PAGE_INFO_SIZE * page_id - 1
+            + page_info::PAGE_INFO_SIZE_OFFSET
+    }
+
+    fn get_offset_page_hash(page_id: usize) -> usize {
+        Self::get_public_memory_offset() + page_info::PAGE_INFO_SIZE * page_id - 1
+            + page_info::PAGE_INFO_HASH_OFFSET
+    }
+
+    fn get_offset_page_addr(page_id: usize) -> usize {
+        Self::get_public_memory_offset() + page_info::PAGE_INFO_SIZE * page_id - 1
+    }
+
+    fn get_offset_page_prod(page_id: usize, n_pages: usize) -> usize {
+        Self::get_public_memory_offset() + page_info::PAGE_INFO_SIZE * n_pages - 1 + page_id
+    }
+
+    fn get_public_input_length(n_pages: usize) -> usize {
+        Self::get_public_memory_offset() + (page_info::PAGE_INFO_SIZE + 1) * n_pages - 1
+    }
 }
