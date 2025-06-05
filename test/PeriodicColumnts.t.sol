@@ -53,7 +53,14 @@ contract PeriodicColumnsTest is Test {
         assertEq(resultY, expectedResultY);
     }
 
+    function testPedersonFrk0ColumnCompute() public view {
+        uint256 expectedResult = 1747952454919021766681010400995206390562374609324430906386085649753967957996;
+        uint256 result = poseidonColumn.compute(poseidon_input);
+        assertEq(result, expectedResult);
+    }
+
     function testPoseidonPoseidonColumnCompute() public view {
+        // full round key
         uint256 full_round_key0_column_expectedResult = 1747952454919021766681010400995206390562374609324430906386085649753967957996;
         uint256 full_round_key0_column_result = poseidonColumn.compute(
             poseidon_input
@@ -83,9 +90,8 @@ contract PeriodicColumnsTest is Test {
             full_round_key2_column_result,
             full_round_key2_column_expectedResult
         );
-        // 1499007735260395255086346814066654016187033964386904667040298584658325794077
-        //  2486570557154671379335084513491649861794821253711847039152551529444239535533
 
+        // Partial round key
         uint256 partial_round_key0_column_expectedResult = 1499007735260395255086346814066654016187033964386904667040298584658325794077;
         uint256 partial_round_key0_column_result = poseidonColumn0.compute(
             poseidon_input
