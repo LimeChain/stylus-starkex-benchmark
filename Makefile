@@ -100,6 +100,14 @@ pederson_x_deploy:
 	--private-key $(nitro_pk) \
 	--broadcast
 
+# == Logs ==
+#   PedersenHashPointsXColumn deployed at: 0x525c2aBA45F66987217323E8a05EA400C65D06DC - 32712
+#   PedersenHashPointsYColumn deployed at: 0x85D9a8a4bd77b9b5559c1B7FCb8eC9635922Ed49
+#   PoseidonPoseidonFullRoundKey0Column deployed at: 0x4A2bA922052bA54e29c5417bC979Daaf7D5Fe4f4 - 22068
+#   PoseidonPoseidonFullRoundKey1Column deployed at: 0x4Af567288e68caD4aA93A272fe6139Ca53859C70
+#   PoseidonPoseidonFullRoundKey2Column deployed at: 0x3DF948c956e14175f43670407d5796b95Bb219D8
+#   PoseidonPoseidonPartialRoundKey0Column deployed at: 0x75E0E92A79880Bd81A69F72983D03c75e2B33dC8 - 23252
+#   PoseidonPoseidonPartialRoundKey1Column deployed at: 0xF5FfD11A55AFD39377411Ab9856474D2a7Cb697e
 .PHONY: periodic_columns_deploy
 periodic_columns_deploy:
 	forge script script/PeriodicColumns.s.sol:PeriodicColumns \
@@ -110,9 +118,41 @@ periodic_columns_deploy:
 .PHONY: periodic_columns_pedersen_test
 periodic_columns_pedersen_test:
 	forge test --match-test testPedersenHashPointsColumnCompute \
-	--fork-url nitro  -vvv
+	--fork-url nitro  -vvv --gas-report
 
 .PHONY: periodic_columns_poseidon_test
 periodic_columns_poseidon_test:
 	forge test --match-test testPoseidonPoseidonColumnCompute \
-	--fork-url nitro  -vvv
+	--fork-url nitro  -vvv --gas-report
+
+.PHONY: periodic_columns_pederson_frk_0_col_test
+periodic_columns_pederson_frk_0_col_test:
+	forge test --match-test testPedersonFrk0ColumnCompute \
+	--fork-url nitro  -vvv 
+
+per_col_contract=0x75E0E92A79880Bd81A69F72983D03c75e2B33dC8
+# cumulativeGasUsed    23252
+.PHONY: poseidonPartialRoundKey0ColumnCast
+poseidonPartialRoundKey0ColumnCast:
+	cast send $(per_col_contract) "compute(uint256)" \
+	513761785516736576210258345954495650460389361631034617172115002511570125974 \
+	--rpc-url nitro --private-key $(nitro_pk) -vvv --gas-limit 2000000
+
+# frk0_contract=0x4A2bA922052bA54e29c5417bC979Daaf7D5Fe4f4
+frk0_contract=0x1b9cbdc65a7bebb0be7f18d93a1896ea1fd46d7a
+# cumulativeGasUsed
+# Solidity:    22068
+# Stylus: 37459
+.PHONY: poseidonPoseidonFullRoundKey0ColumnCast
+poseidonPoseidonFullRoundKey0ColumnCast:
+	cast send $(frk0_contract) "compute(uint256)" \
+	513761785516736576210258345954495650460389361631034617172115002511570125974 \
+	--rpc-url nitro --private-key $(nitro_pk) -vvv --gas-limit 2000000
+
+pederson_x_contract=0x525c2aBA45F66987217323E8a05EA400C65D06DC
+# cumulativeGasUsed    32712
+.PHONY: pederson_x_cast
+pederson_x_cast:
+	cast send $(pederson_x_contract) "compute(uint256)" \
+	2502371038239847331946845555940821891939660827069539886818086403686260021246 \
+	--rpc-url nitro --private-key $(nitro_pk) -vvv --gas-limit 2000000
