@@ -8,12 +8,18 @@ inputpath = /Users/sergei.milev/wrksps/starkex/inputs/mpfr_from_gps.txt
 MPFR_INPUT := $(shell tr '\n' ' ' < /Users/sergei.milev/wrksps/starkex/inputs/mpfr_from_gps.txt)
 
 # Contract addresses on Anvil
-ca_anvil_mpfr=0xb69FC79100eDd058f9c96c0a13C80124aC1a7D77
-ca_nitro_mpfr = 0x525c2aBA45F66987217323E8a05EA400C65D06DC
+ca_anvil_mpfr=0x4Af567288e68caD4aA93A272fe6139Ca53859C70
+ca_nitro_mpfr = 0x4af567288e68cad4aa93a272fe6139ca53859c70
+ca_td_mpfr=0x525c2aBA45F66987217323E8a05EA400C65D06DC
+
+rpc_url=http://localhost:8547
+
+
+contract=0x525c2aba45f66987217323e8a05ea400c65d06dc
 
 .PHONY: deploy-wasm
 deploy-wasm:
-	cargo stylus deploy --endpoint='http://localhost:8547' --private-key=$(pk)
+	cargo stylus deploy --endpoint=$(rpc_url) --private-key=$(pk)
 
 # ANVIL
 ## MemoryPageFactRegistry 
@@ -21,8 +27,8 @@ deploy-wasm:
 .PHONY: anvil-deploy-mpfr
 anvil-deploy-mpfr:
 	forge script script/DeployMemoryPageFactRegistry.s.sol \
-	--rpc-url tenderly_fork \
-	--private-key $(anvil_pk) \
+	--rpc-url $(rpc_url) \
+	--private-key $(pk) \
 	--broadcast
 
 .PHONY: anvil-test-mpfr
@@ -74,14 +80,29 @@ nitro-test-mpfr:
 # 85360, 45342, 45342
 .PHONY: nitro-cast-mpfr-registerRegularMemoryPage
 nitro-cast-mpfr-registerRegularMemoryPage:
-	cast send 0x11729c8891536e1b2143b81db3e8d2238eee6b1b "registerRegularMemoryPage(uint256[],uint256,uint256,uint256)" "[1,100,2,200]" 5 3 57896044618658097711785492504343953926634992332820282019728792003956564819969 \
-	--rpc-url arb_fork --private-key $(nitro_pk) -vvv
+	cast send $(ca_td_mpfr) "registerRegularMemoryPage(uint256[],uint256,uint256,uint256)" "[1,100,2,200]" 5 3 57896044618658097711785492504343953926634992332820282019728792003956564819969 \
+	--rpc-url tenderly_fork --private-key $(nitro_pk) --gas-limit 2000000 -vvv
 
 .PHONY: nitro-cast-mpfr-registerRegularMemoryPage-big-input
 nitro-cast-mpfr-registerRegularMemoryPage-big-input:
-	@cast send 0x11729c8891536e1b2143b81db3e8d2238eee6b1b "registerRegularMemoryPage(uint256[],uint256,uint256,uint256)" \
+	@cast send $(contract) "registerRegularMemoryPage(uint256[],uint256,uint256,uint256)" \
 	$(MPFR_INPUT) \
 	1923983994410949646266215635478491917832882166179969396251746181413976269170 \
 	2548115266380774413420845979236209449237376742700778263417656557146680537758 \
 	3618502788666131213697322783095070105623107215331596699973092056135872020481 \
-	--rpc-url arb_fork --private-key $(nitro_pk) -vvv --gas-limit 3000000000
+	--rpc-url $(rpc_url) --private-key $(pk) -vvv --gas-limit 2000000
+
+
+.PHONY: pederson_x_deploy
+pederson_x_deploy:
+	forge script script/PedersenHashPointsXColumn.s.sol:PedersenHashPointsXColumnDeploy \
+	--rpc-url nitro \
+	--private-key $(nitro_pk) \
+	--broadcast
+
+.PHONY: periodic_columns_deploy
+periodic_columns_deploy:
+	forge script script/PeriodicColumns.s.sol:PeriodicColumns \
+	--rpc-url nitro \
+	--private-key $(nitro_pk) \
+	--broadcast
