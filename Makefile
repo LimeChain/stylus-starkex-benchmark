@@ -106,3 +106,13 @@ periodic_columns_deploy:
 	--rpc-url nitro \
 	--private-key $(nitro_pk) \
 	--broadcast
+
+.PHONY: periodic_columns_pedersen_test
+periodic_columns_pedersen_test:
+	forge test --match-test testPedersenHashPointsColumnCompute \
+	--fork-url nitro  -vvv
+
+.PHONY: periodic_columns_poseidon_test
+periodic_columns_poseidon_test:
+	forge test --match-test testPoseidonPoseidonColumnCompute \
+	--fork-url nitro  -vvv
