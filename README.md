@@ -8,7 +8,8 @@ This code repository aims to benchmark the gas costs between EVM and Stylus cont
 To compare both implementation we will use this [transaction](https://dashboard.tenderly.co/tx/0x3acee509e2bb475eb7f35d60b439cd074e6af1a9db974136d0f2e78fd76ab90b?trace=0.1.1.5.0.431.17).
 There are a few interesting moments we found out:
 * Some of the contracts have been automatically generated, but the generator code is not publicly available
-* The logic uses layout7 which does not exist in the `evm-verifier` repository. We found it from [here]().
+* The logic uses layout7 which does not exist in the `evm-verifier` repository. We found it from [here](https://github.com/Draply/Stark-verifier/tree/master/src/verifier/cpu/layout7).
+* The logic uses poseidon arithmetic which does not exist in the `evm-verifier` repository. We found it from [here](https://github.com/Bisht13/post-quantum-eth-security/tree/main/contracts/periodic_columns).
 
 > [!IMPORTANT]
 > The provided numbers below are **L2_GAS** gas costs, because that's what's most important, since it represents the actual computational cost of the transactions, and not the `L1` calldata fees that are always fluctuating.
