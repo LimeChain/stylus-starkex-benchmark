@@ -3,7 +3,7 @@ pk=0xb6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659
 MPFR_INPUT := $(shell tr '\n' ' ' < ./inputs/mpfr_from_gps.txt)
 
 rpc_url=http://localhost:8547
-contract=0x1b9cbdc65a7bebb0be7f18d93a1896ea1fd46d7a
+contract=0xC2C0c3398915A2d2E9C33C186AbFEF3192Ee25E8
 
 # -------------------------------------------------------------------------------------------------
 # NITRO
@@ -67,6 +67,18 @@ solidity-deploy-poseidon-full-0:
 .PHONY: stylus-deploy-poseidon-full-0
 stylus-deploy-poseidon-full-0:
 	cd ./stylus/poseidon-frk-0-col && cargo stylus deploy --private-key=$(pk) --estimate-gas
+
+.PHONY: solidity-deploy-poseidon-full-1
+solidity-deploy-poseidon-full-1:
+	forge script script/Poseidon1Full.s.sol \
+	--rpc-url ${rpc_url} \
+	--private-key $(pk) \
+	--broadcast
+
+.PHONY: stylus-deploy-poseidon-full-1
+stylus-deploy-poseidon-full-1:
+	cd ./stylus/poseidon-frk-1-col && cargo stylus deploy --private-key=$(pk) --estimate-gas
+
 
 .PHONY: periodic_columns_pedersen_test
 periodic_columns_pedersen_test:
