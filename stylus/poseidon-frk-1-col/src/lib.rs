@@ -8,8 +8,8 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use stylus_sdk::alloy_primitives::{uint, U256};
-/// Import items from the SDK. The prelude contains common traits and macros.
 use stylus_sdk::prelude::*;
+
 const PRIME: U256 = uint!(0x800000000000011000000000000000000000000000000000000000000000001_U256);
 const COEFF_LAST: U256 =
     uint!(0x587584d86e310744ac2167594e87c72847cc1018d766c61b29b572ba4552a80_U256);
