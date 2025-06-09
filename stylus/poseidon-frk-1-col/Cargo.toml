@@ -1,12 +1,12 @@
 [package]
-name = "pederson-frk-1-col"
+name = "poseidon-frk-1-col"
 version = "0.1.11"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/OffchainLabs/pederson-frk-0-col"
 repository = "https://github.com/OffchainLabs/pederson-frk-0-col"
 keywords = ["arbitrum", "ethereum", "stylus", "alloy"]
-description = "Pederson frk 1 col example"
+description = "Poseidon full round key 1 col example"
 
 [dependencies]
 alloy-primitives = "=0.8.20"
@@ -30,7 +30,7 @@ debug = ["stylus-sdk/debug"]
 mini-alloc = ["stylus-sdk/mini-alloc"]
 
 [[bin]]
-name = "pederson-frk-0-col"
+name = "poseidon-frk-1-col"
 path = "src/main.rs"
 
 [lib]
