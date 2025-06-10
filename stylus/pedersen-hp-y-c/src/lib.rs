@@ -26,7 +26,8 @@ impl PedersenHashPointsYColumn {
                 acc.mul_mod(x, PRIME).wrapping_add(coeff)
             })
             .mul_mod(x, PRIME)
-            .add_mod(COEFF_LAST, PRIME)
+            .wrapping_add(COEFF_LAST)
+            % PRIME
     }
 }
 

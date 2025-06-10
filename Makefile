@@ -139,20 +139,41 @@ poseidonPartialRoundKey0ColumnCast:
 	--rpc-url nitro --private-key $(nitro_pk) -vvv --gas-limit 2000000
 
 # frk0_contract=0x4A2bA922052bA54e29c5417bC979Daaf7D5Fe4f4
-frk0_contract=0x1b9cbdc65a7bebb0be7f18d93a1896ea1fd46d7a
+frk0_contract=0x47cec0749bd110bc11f9577a70061202b1b6c034
 # cumulativeGasUsed
 # Solidity:    22068
 # Stylus: 37459
+# -- Partial round key 0 column
+# cumulativeGasUsed
+# Solidity: 23252
+# Stylus: 50564
 .PHONY: poseidonPoseidonFullRoundKey0ColumnCast
 poseidonPoseidonFullRoundKey0ColumnCast:
 	cast send $(frk0_contract) "compute(uint256)" \
 	513761785516736576210258345954495650460389361631034617172115002511570125974 \
 	--rpc-url nitro --private-key $(nitro_pk) -vvv --gas-limit 2000000
 
-pederson_x_contract=0x525c2aBA45F66987217323E8a05EA400C65D06DC
-# cumulativeGasUsed    32712
-.PHONY: pederson_x_cast
-pederson_x_cast:
-	cast send $(pederson_x_contract) "compute(uint256)" \
+
+pedersen_contract=0x8e1308925a26cb5cF400afb402d67B3523473379
+
+# cumulativeGasUsed    
+# PedersenHashPointsXColumn
+# Solidity: 32712
+# Stylus: 151995
+# PedersenHashPointsYColumn
+# Solidity: 32712
+# Stylus: 152012
+.PHONY: pedersen_cast
+pedersen_cast:
+	cast send $(pedersen_contract) "compute(uint256)" \
 	2502371038239847331946845555940821891939660827069539886818086403686260021246 \
 	--rpc-url nitro --private-key $(nitro_pk) -vvv --gas-limit 2000000
+
+
+
+
+.PHONY: pedersen_cast_call
+pedersen_cast_call:
+	cast call $(pedersen_contract) "compute(uint256)" \
+	2502371038239847331946845555940821891939660827069539886818086403686260021246 \
+	--rpc-url nitro  --private-key $(nitro_pk) -vvv
