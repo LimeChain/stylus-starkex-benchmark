@@ -3,12 +3,15 @@
 // Allow `cargo stylus export-abi` to generate a main function.
 #![cfg_attr(not(any(test, feature = "export-abi")), no_main)]
 extern crate alloc;
-mod errors;
+mod consts;
+mod layout_specific;
+mod macros;
+mod public_memory_offsets;
 mod stark_verifier;
 
-use offsets::{page_info, public_input_offsets, PublicMemoryOffset};
+use offsets::{public_input_offsets, PublicMemoryOffset};
 
-use stark_verifier::*;
+// use stark_verifier::*;
 /// Import items from the SDK. The prelude contains common traits and macros.
 use stylus_sdk::{alloy_primitives::U256, prelude::*};
 
@@ -17,6 +20,7 @@ use stylus_sdk::{alloy_primitives::U256, prelude::*};
 
 #[storage]
 pub struct CpuVerifier {}
+
 impl PublicMemoryOffset for CpuVerifier {
     fn get_public_memory_offset() -> usize {
         public_input_offsets::OFFSET_PUBLIC_MEMORY
@@ -37,6 +41,15 @@ impl CpuVerifier {
                 | (1 << EC_OP_BUILTIN_BIT),
         );
         Ok((public_memory_offset, selected_builtins))
+    }
+
+    pub fn verify_proof_external(
+        &self,
+        proof_params: Vec<U256>,
+        proof: Vec<U256>,
+        public_input: Vec<U256>,
+    ) -> Result<(), stark_verifier::VerifierError> {
+        stark_verifier::StarkVerifier {}.verify_proof(&proof_params, &proof, &public_input)
     }
 }
 
