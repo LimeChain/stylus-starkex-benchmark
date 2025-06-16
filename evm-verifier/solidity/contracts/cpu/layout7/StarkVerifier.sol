@@ -1,10 +1,25 @@
+/*
+  Copyright 2019-2024 StarkWare Industries Ltd.
+
+  Licensed under the Apache License, Version 2.0 (the "License").
+  You may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+  https://www.starkware.co/open-source-license/
+
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions
+  and limitations under the License.
+*/
 // SPDX-License-Identifier: Apache-2.0.
 pragma solidity ^0.6.12;
 
 import "./Fri.sol";
 import "./MemoryMap.sol";
 import "./MemoryAccessUtils.sol";
-import "../../interfaces/IStarkVerifier.sol";
+import "../../../interfaces/IStarkVerifier.sol";
 import "../../VerifierChannel.sol";
 
 abstract contract StarkVerifier is
@@ -56,9 +71,7 @@ abstract contract StarkVerifier is
     event LogBool(bool val);
     event LogDebug(uint256 val);
 
-    function airSpecificInit(
-        uint256[] memory publicInput
-    )
+    function airSpecificInit(uint256[] memory publicInput)
         internal
         view
         virtual
@@ -67,8 +80,7 @@ abstract contract StarkVerifier is
     uint256 internal constant PROOF_PARAMS_N_QUERIES_OFFSET = 0;
     uint256 internal constant PROOF_PARAMS_LOG_BLOWUP_FACTOR_OFFSET = 1;
     uint256 internal constant PROOF_PARAMS_PROOF_OF_WORK_BITS_OFFSET = 2;
-    uint256 internal constant PROOF_PARAMS_FRI_LAST_LAYER_LOG_DEG_BOUND_OFFSET =
-        3;
+    uint256 internal constant PROOF_PARAMS_FRI_LAST_LAYER_LOG_DEG_BOUND_OFFSET = 3;
     uint256 internal constant PROOF_PARAMS_N_FRI_STEPS_OFFSET = 4;
     uint256 internal constant PROOF_PARAMS_FRI_STEPS_OFFSET = 5;
 
@@ -83,68 +95,43 @@ abstract contract StarkVerifier is
         uint256 nFriSteps = friStepSizes.length;
         for (uint256 i = 1; i < nFriSteps; i++) {
             uint256 friStepSize = friStepSizes[i];
-            require(
-                friStepSize >= FRI_MIN_STEP_SIZE,
-                "Min supported fri step size is 2."
-            );
-            require(
-                friStepSize <= FRI_MAX_STEP_SIZE,
-                "Max supported fri step size is 4."
-            );
+            require(friStepSize >= FRI_MIN_STEP_SIZE, "Min supported fri step size is 2.");
+            require(friStepSize <= FRI_MAX_STEP_SIZE, "Max supported fri step size is 4.");
             expectedLogDegBound += friStepSize;
         }
 
         // FRI starts with a polynomial of degree 'traceLength'.
         // After applying all the FRI steps we expect to get a polynomial of degree less
         // than friLastLayerDegBound.
-        require(
-            expectedLogDegBound == logTraceLength,
-            "Fri params do not match trace length"
-        );
+        require(expectedLogDegBound == logTraceLength, "Fri params do not match trace length");
     }
 
-    function initVerifierParams(
-        uint256[] memory publicInput,
-        uint256[] memory proofParams
-    ) internal view returns (uint256[] memory ctx) {
-        require(
-            proofParams.length > PROOF_PARAMS_FRI_STEPS_OFFSET,
-            "Invalid proofParams."
-        );
+    function initVerifierParams(uint256[] memory publicInput, uint256[] memory proofParams)
+        internal
+        view
+        returns (uint256[] memory ctx)
+    {
+        require(proofParams.length > PROOF_PARAMS_FRI_STEPS_OFFSET, "Invalid proofParams.");
         require(
             proofParams.length ==
-                (PROOF_PARAMS_FRI_STEPS_OFFSET +
-                    proofParams[PROOF_PARAMS_N_FRI_STEPS_OFFSET]),
+                (PROOF_PARAMS_FRI_STEPS_OFFSET + proofParams[PROOF_PARAMS_N_FRI_STEPS_OFFSET]),
             "Invalid proofParams."
         );
-        uint256 logBlowupFactor = proofParams[
-            PROOF_PARAMS_LOG_BLOWUP_FACTOR_OFFSET
-        ];
+        uint256 logBlowupFactor = proofParams[PROOF_PARAMS_LOG_BLOWUP_FACTOR_OFFSET];
         // Ensure 'logBlowupFactor' is bounded as a sanity check (the bound is somewhat arbitrary).
         require(logBlowupFactor <= 16, "logBlowupFactor must be at most 16");
         require(logBlowupFactor >= 1, "logBlowupFactor must be at least 1");
 
-        uint256 proofOfWorkBits = proofParams[
-            PROOF_PARAMS_PROOF_OF_WORK_BITS_OFFSET
-        ];
+        uint256 proofOfWorkBits = proofParams[PROOF_PARAMS_PROOF_OF_WORK_BITS_OFFSET];
         // Ensure 'proofOfWorkBits' is bounded as a sanity check (the bound is somewhat arbitrary).
         require(proofOfWorkBits <= 50, "proofOfWorkBits must be at most 50");
-        require(
-            proofOfWorkBits >= minProofOfWorkBits,
-            "minimum proofOfWorkBits not satisfied"
-        );
-        require(
-            proofOfWorkBits < numSecurityBits,
-            "Proofs may not be purely based on PoW."
-        );
+        require(proofOfWorkBits >= minProofOfWorkBits, "minimum proofOfWorkBits not satisfied");
+        require(proofOfWorkBits < numSecurityBits, "Proofs may not be purely based on PoW.");
 
         uint256 logFriLastLayerDegBound = (
             proofParams[PROOF_PARAMS_FRI_LAST_LAYER_LOG_DEG_BOUND_OFFSET]
         );
-        require(
-            logFriLastLayerDegBound <= 10,
-            "logFriLastLayerDegBound must be at most 10."
-        );
+        require(logFriLastLayerDegBound <= 10, "logFriLastLayerDegBound must be at most 10.");
 
         uint256 nFriSteps = proofParams[PROOF_PARAMS_N_FRI_STEPS_OFFSET];
         require(nFriSteps <= MAX_FRI_STEPS, "Too many fri steps.");
@@ -158,20 +145,16 @@ abstract contract StarkVerifier is
         uint256 logTraceLength;
         (ctx, logTraceLength) = airSpecificInit(publicInput);
 
-        validateFriParams(
-            friStepSizes,
-            logTraceLength,
-            logFriLastLayerDegBound
-        );
+        validateFriParams(friStepSizes, logTraceLength, logFriLastLayerDegBound);
 
         uint256 friStepSizesPtr = getPtr(ctx, MM_FRI_STEP_SIZES_PTR);
         assembly {
             mstore(friStepSizesPtr, friStepSizes)
         }
-        ctx[MM_FRI_LAST_LAYER_DEG_BOUND] = 2 ** logFriLastLayerDegBound;
-        ctx[MM_TRACE_LENGTH] = 2 ** logTraceLength;
+        ctx[MM_FRI_LAST_LAYER_DEG_BOUND] = 2**logFriLastLayerDegBound;
+        ctx[MM_TRACE_LENGTH] = 2**logTraceLength;
 
-        ctx[MM_BLOW_UP_FACTOR] = 2 ** logBlowupFactor;
+        ctx[MM_BLOW_UP_FACTOR] = 2**logBlowupFactor;
         ctx[MM_PROOF_OF_WORK_BITS] = proofOfWorkBits;
 
         uint256 nQueries = proofParams[PROOF_PARAMS_N_QUERIES_OFFSET];
@@ -186,20 +169,19 @@ abstract contract StarkVerifier is
 
         // We start with logEvalDomainSize = logTraceSize and update it here.
         ctx[MM_LOG_EVAL_DOMAIN_SIZE] = logTraceLength + logBlowupFactor;
-        ctx[MM_EVAL_DOMAIN_SIZE] = 2 ** ctx[MM_LOG_EVAL_DOMAIN_SIZE];
+        ctx[MM_EVAL_DOMAIN_SIZE] = 2**ctx[MM_LOG_EVAL_DOMAIN_SIZE];
 
         // Compute the generators for the evaluation and trace domains.
-        uint256 genEvalDomain = fpow(
-            GENERATOR_VAL,
-            (K_MODULUS - 1) / ctx[MM_EVAL_DOMAIN_SIZE]
-        );
+        uint256 genEvalDomain = fpow(GENERATOR_VAL, (K_MODULUS - 1) / ctx[MM_EVAL_DOMAIN_SIZE]);
         ctx[MM_EVAL_DOMAIN_GENERATOR] = genEvalDomain;
         ctx[MM_TRACE_GENERATOR] = fpow(genEvalDomain, ctx[MM_BLOW_UP_FACTOR]);
     }
 
-    function getPublicInputHash(
-        uint256[] memory publicInput
-    ) internal pure virtual returns (bytes32);
+    function getPublicInputHash(uint256[] memory publicInput)
+        internal
+        pure
+        virtual
+        returns (bytes32);
 
     function oodsConsistencyCheck(uint256[] memory ctx) internal view virtual;
 
@@ -207,11 +189,7 @@ abstract contract StarkVerifier is
 
     function getNColumnsInComposition() internal pure virtual returns (uint256);
 
-    function getMmCoefficients() internal pure virtual returns (uint256);
-
     function getMmOodsValues() internal pure virtual returns (uint256);
-
-    function getMmOodsCoefficients() internal pure virtual returns (uint256);
 
     function getNCoefficients() internal pure virtual returns (uint256);
 
@@ -229,12 +207,7 @@ abstract contract StarkVerifier is
         return 0;
     }
 
-    function getMmInteractionElements()
-        internal
-        pure
-        virtual
-        returns (uint256)
-    {
+    function getMmInteractionElements() internal pure virtual returns (uint256) {
         revert("AIR does not support interaction.");
     }
 
@@ -261,14 +234,10 @@ abstract contract StarkVerifier is
           for each query index "idx" we compute the corresponding evaluation point:
               g^(bitReverse(idx, log_evalDomainSize).
     */
-    function adjustQueryIndicesAndPrepareEvalPoints(
-        uint256[] memory ctx
-    ) internal view {
+    function adjustQueryIndicesAndPrepareEvalPoints(uint256[] memory ctx) internal view {
         uint256 nUniqueQueries = ctx[MM_N_UNIQUE_QUERIES];
         uint256 friQueue = getPtr(ctx, MM_FRI_QUEUE);
-        uint256 friQueueEnd = friQueue +
-            nUniqueQueries *
-            FRI_QUEUE_SLOT_SIZE_IN_BYTES;
+        uint256 friQueueEnd = friQueue + nUniqueQueries * FRI_QUEUE_SLOT_SIZE_IN_BYTES;
         uint256 evalPointsPtr = getPtr(ctx, MM_OODS_EVAL_POINTS);
         uint256 log_evalDomainSize = ctx[MM_LOG_EVAL_DOMAIN_SIZE];
         uint256 evalDomainSize = ctx[MM_EVAL_DOMAIN_SIZE];
@@ -287,30 +256,15 @@ abstract contract StarkVerifier is
                 // the chunk size, and perform a single right shift at the end.
                 res := value
                 // Swap 1 bit chunks.
-                res := or(
-                    shl(2, and(res, 0x5555555555555555)),
-                    and(res, 0xaaaaaaaaaaaaaaaa)
-                )
+                res := or(shl(2, and(res, 0x5555555555555555)), and(res, 0xaaaaaaaaaaaaaaaa))
                 // Swap 2 bit chunks.
-                res := or(
-                    shl(4, and(res, 0x6666666666666666)),
-                    and(res, 0x19999999999999998)
-                )
+                res := or(shl(4, and(res, 0x6666666666666666)), and(res, 0x19999999999999998))
                 // Swap 4 bit chunks.
-                res := or(
-                    shl(8, and(res, 0x7878787878787878)),
-                    and(res, 0x78787878787878780)
-                )
+                res := or(shl(8, and(res, 0x7878787878787878)), and(res, 0x78787878787878780))
                 // Swap 8 bit chunks.
-                res := or(
-                    shl(16, and(res, 0x7f807f807f807f80)),
-                    and(res, 0x7f807f807f807f8000)
-                )
+                res := or(shl(16, and(res, 0x7f807f807f807f80)), and(res, 0x7f807f807f807f8000))
                 // Swap 16 bit chunks.
-                res := or(
-                    shl(32, and(res, 0x7fff80007fff8000)),
-                    and(res, 0x7fff80007fff80000000)
-                )
+                res := or(shl(32, and(res, 0x7fff80007fff8000)), and(res, 0x7fff80007fff80000000))
                 // Swap 32 bit chunks.
                 res := or(
                     shl(64, and(res, 0x7fffffff80000000)),
@@ -355,11 +309,7 @@ abstract contract StarkVerifier is
                 // Compute the evaluation point corresponding to the current queryIdx.
                 mstore(
                     evalPointsPtr,
-                    expmod(
-                        evalDomainGenerator,
-                        bitReverse(queryIdx, log_evalDomainSize),
-                        K_MODULUS
-                    )
+                    expmod(evalDomainGenerator, bitReverse(queryIdx, log_evalDomainSize), K_MODULUS)
                 )
                 evalPointsPtr := add(evalPointsPtr, 0x20)
             }
@@ -391,17 +341,12 @@ abstract contract StarkVerifier is
         uint256 proofDataPtr,
         bytes32 merkleRoot
     ) internal view {
-        require(
-            nColumns <= getNColumnsInTrace() + getNColumnsInComposition(),
-            "Too many columns."
-        );
+        require(nColumns <= getNColumnsInTrace() + getNColumnsInComposition(), "Too many columns.");
 
         uint256 nUniqueQueries = ctx[MM_N_UNIQUE_QUERIES];
         uint256 channelPtr = getPtr(ctx, MM_CHANNEL);
         uint256 friQueue = getPtr(ctx, MM_FRI_QUEUE);
-        uint256 friQueueEnd = friQueue +
-            nUniqueQueries *
-            FRI_QUEUE_SLOT_SIZE_IN_BYTES;
+        uint256 friQueueEnd = friQueue + nUniqueQueries * FRI_QUEUE_SLOT_SIZE_IN_BYTES;
         uint256 merkleQueuePtr = getPtr(ctx, MM_MERKLE_QUEUE);
         uint256 rowSize = 0x20 * nColumns;
         uint256 proofDataSkipBytes = 0x20 * (nTotalColumns - nColumns);
@@ -415,10 +360,7 @@ abstract contract StarkVerifier is
             } lt(friQueue, friQueueEnd) {
                 friQueue := add(friQueue, FRI_QUEUE_SLOT_SIZE_IN_BYTES)
             } {
-                let merkleLeaf := and(
-                    keccak256(proofPtr, rowSize),
-                    COMMITMENT_MASK
-                )
+                let merkleLeaf := and(keccak256(proofPtr, rowSize), COMMITMENT_MASK)
                 if eq(rowSize, 0x20) {
                     // If a leaf contains only 1 field element we don't hash it.
                     merkleLeaf := mload(proofPtr)
@@ -460,7 +402,6 @@ abstract contract StarkVerifier is
     */
     function computeFirstFriLayer(uint256[] memory ctx) internal view {
         adjustQueryIndicesAndPrepareEvalPoints(ctx);
-        // emit LogGas("Prepare evaluation points", gasleft());
         readQueryResponsesAndDecommit(
             ctx,
             getNColumnsInTrace(),
@@ -468,8 +409,6 @@ abstract contract StarkVerifier is
             getPtr(ctx, MM_TRACE_QUERY_RESPONSES),
             bytes32(ctx[MM_TRACE_COMMITMENT])
         );
-        // emit LogGas("Read and decommit trace", gasleft());
-
         if (hasInteraction()) {
             readQueryResponsesAndDecommit(
                 ctx,
@@ -478,7 +417,6 @@ abstract contract StarkVerifier is
                 getPtr(ctx, MM_TRACE_QUERY_RESPONSES + getNColumnsInTrace0()),
                 bytes32(ctx[MM_TRACE_COMMITMENT + 1])
             );
-            // emit LogGas("Read and decommit second trace", gasleft());
         }
 
         readQueryResponsesAndDecommit(
@@ -488,8 +426,6 @@ abstract contract StarkVerifier is
             getPtr(ctx, MM_COMPOSITION_QUERY_RESPONSES),
             bytes32(ctx[MM_OODS_COMMITMENT])
         );
-
-        // emit LogGas("Read and decommit composition", gasleft());
 
         address oodsAddress = oodsContractAddress;
         uint256 friQueue = getPtr(ctx, MM_FRI_QUEUE);
@@ -501,7 +437,7 @@ abstract contract StarkVerifier is
                     not(0),
                     oodsAddress,
                     ctx,
-                    mul(add(mload(ctx), 1), 0x20) /*sizeof(ctx)*/,
+                    mul(add(mload(ctx), 1), 0x20), /*sizeof(ctx)*/
                     friQueue,
                     returnDataSize
                 )
@@ -510,7 +446,6 @@ abstract contract StarkVerifier is
                 revert(0, returndatasize())
             }
         }
-        // emit LogGas("OODS virtual oracle", gasleft());
     }
 
     /*
@@ -530,9 +465,7 @@ abstract contract StarkVerifier is
         uint256 badInput = 0;
 
         assembly {
-            let
-                primeMinusOne
-            := 0x800000000000011000000000000000000000000000000000000000000000000
+            let primeMinusOne := 0x800000000000011000000000000000000000000000000000000000000000000
             let channelPtr := add(add(ctx, 0x20), mul(lmmChannel, 0x20))
             lastLayerPtr := mload(channelPtr)
 
@@ -573,17 +506,10 @@ abstract contract StarkVerifier is
         uint256[] memory proof,
         uint256[] memory publicInput
     ) internal view override {
-        // emit LogGas("Transmission", gasleft());
         uint256[] memory ctx = initVerifierParams(publicInput, proofParams);
         uint256 channelPtr = getChannelPtr(ctx);
 
-        initChannel(
-            channelPtr,
-            getProofPtr(proof),
-            getPublicInputHash(publicInput)
-        );
-        // emit LogGas("Initializations", gasleft());
-
+        initChannel(channelPtr, getProofPtr(proof), getPublicInputHash(publicInput));
         // Read trace commitment.
         ctx[MM_TRACE_COMMITMENT] = uint256(readHash(channelPtr, true));
 
@@ -599,55 +525,27 @@ abstract contract StarkVerifier is
             ctx[MM_TRACE_COMMITMENT + 1] = uint256(readHash(channelPtr, true));
         }
 
-        VerifierChannel.sendFieldElements(
-            channelPtr,
-            getNCoefficients(),
-            getPtr(ctx, getMmCoefficients())
-        );
-        // emit LogGas("Generate coefficients", gasleft());
-
+        // Send constraint polynomial random element.
+        VerifierChannel.sendFieldElements(channelPtr, 1, getPtr(ctx, MM_COMPOSITION_ALPHA));
         ctx[MM_OODS_COMMITMENT] = uint256(readHash(channelPtr, true));
 
         // Send Out of Domain Sampling point.
-        VerifierChannel.sendFieldElements(
-            channelPtr,
-            1,
-            getPtr(ctx, MM_OODS_POINT)
-        );
+        VerifierChannel.sendFieldElements(channelPtr, 1, getPtr(ctx, MM_OODS_POINT));
 
         // Read the answers to the Out of Domain Sampling.
         uint256 lmmOodsValues = getMmOodsValues();
-        for (
-            uint256 i = lmmOodsValues;
-            i < lmmOodsValues + getNOodsValues();
-            i++
-        ) {
+        for (uint256 i = lmmOodsValues; i < lmmOodsValues + getNOodsValues(); i++) {
             ctx[i] = VerifierChannel.readFieldElement(channelPtr, true);
         }
-        // emit LogGas("Read OODS commitments", gasleft());
         oodsConsistencyCheck(ctx);
-        // emit LogGas("OODS consistency check", gasleft());
-        VerifierChannel.sendFieldElements(
-            channelPtr,
-            getNOodsCoefficients(),
-            getPtr(ctx, getMmOodsCoefficients())
-        );
-        // emit LogGas("Generate OODS coefficients", gasleft());
-        ctx[MM_FRI_COMMITMENTS] = uint256(
-            VerifierChannel.readHash(channelPtr, true)
-        );
+        VerifierChannel.sendFieldElements(channelPtr, 1, getPtr(ctx, MM_OODS_ALPHA));
+        ctx[MM_FRI_COMMITMENTS] = uint256(VerifierChannel.readHash(channelPtr, true));
 
         uint256 nFriSteps = getFriStepSizes(ctx).length;
         uint256 fri_evalPointPtr = getPtr(ctx, MM_FRI_EVAL_POINTS);
         for (uint256 i = 1; i < nFriSteps - 1; i++) {
-            VerifierChannel.sendFieldElements(
-                channelPtr,
-                1,
-                fri_evalPointPtr + i * 0x20
-            );
-            ctx[MM_FRI_COMMITMENTS + i] = uint256(
-                VerifierChannel.readHash(channelPtr, true)
-            );
+            VerifierChannel.sendFieldElements(channelPtr, 1, fri_evalPointPtr + i * 0x20);
+            ctx[MM_FRI_COMMITMENTS + i] = uint256(VerifierChannel.readHash(channelPtr, true));
         }
 
         // Send last random FRI evaluation point.
@@ -662,10 +560,7 @@ abstract contract StarkVerifier is
 
         // Generate queries.
         // emit LogGas("Read FRI commitments", gasleft());
-        VerifierChannel.verifyProofOfWork(
-            channelPtr,
-            ctx[MM_PROOF_OF_WORK_BITS]
-        );
+        VerifierChannel.verifyProofOfWork(channelPtr, ctx[MM_PROOF_OF_WORK_BITS]);
         ctx[MM_N_UNIQUE_QUERIES] = VerifierChannel.sendRandomQueries(
             channelPtr,
             ctx[MM_N_UNIQUE_QUERIES],
@@ -673,8 +568,6 @@ abstract contract StarkVerifier is
             getPtr(ctx, MM_FRI_QUEUE),
             FRI_QUEUE_SLOT_SIZE_IN_BYTES
         );
-        // emit LogGas("Send queries", gasleft());
-
         computeFirstFriLayer(ctx);
 
         friVerifyLayers(ctx);
