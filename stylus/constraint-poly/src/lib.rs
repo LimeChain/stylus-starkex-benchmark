@@ -447,6 +447,9 @@ const EXPECTED_INPUT_LEN: usize = 0x1d40; // 7488 bytes
 #[entrypoint]
 pub struct ConstraintPoly;
 
+// Base sizes:
+// contract size: 35.4 KB (35418 bytes)
+// wasm size: 224.5 KB (224546 bytes)
 #[public]
 impl ConstraintPoly {
     #[fallback]
@@ -3255,7 +3258,7 @@ mod test {
         }
     }
 
-    #[motsu::test]
+    #[test]
     fn test_denominator_invs() {
         let den_inv = ConstraintPoly::denominator_invs(&DOMAINS).unwrap();
         assert_eq!(den_inv, DEN_INV);
@@ -3265,12 +3268,13 @@ mod test {
     const RESULT: U256 =
         uint!(0x026fac3a23aa63d75cc32bd45fbd3794fcc622f05c956eb2329c7ecb2f241997_U256);
 
-    #[motsu::test]
+    #[test]
     fn test_compute_result() {
         let result =
             ConstraintPoly::compute_result(&INPUT, &COMPOSITION_POLY, &DOMAINS, &DEN_INV).unwrap();
         assert_eq!(result, RESULT);
     }
+
     use stylus_sdk::testing::*;
     #[test]
     fn test_full_compute() {
