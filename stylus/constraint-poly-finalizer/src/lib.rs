@@ -1,4 +1,11 @@
 // Allow `cargo stylus export-abi` to generate a main function.
+// |<------------------- calldata (bytes) ------------------>|
+// |       input        | composition_poly |    domains      |
+// | 234 x U256 (32B)   |  52 x U256 (32B) | 28 x U256 (32B) |
+// | bytes: 7488        | bytes: 1664      | bytes: 928      |
+// |--------------------|------------------|-----------------|
+// | 0       ...   233  | 234  ...   285   | 286  ...  313   |
+// |--------------------|------------------|-----------------|
 #![cfg_attr(not(any(test, feature = "export-abi")), no_main)]
 #![cfg_attr(not(any(test, feature = "export-abi")), no_std)]
 
