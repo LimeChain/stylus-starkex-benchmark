@@ -192,18 +192,23 @@ pedersen_cast_call:
 
 poly_contract=0x525c2aba45f66987217323e8a05ea400c65d06dc
 fin_contract=0x525c2aba45f66987217323e8a05ea400c65d06dc
+preparer_contract=0x4a2ba922052ba54e29c5417bc979daaf7d5fe4f4
 .PHONY: constraint_poly_cast
 constraint_poly_cast:
 	cast call 0x525c2aba45f66987217323e8a05ea400c65d06dc $$(cat poly_input)  --rpc-url nitro
 
+.PHONY: constraint_poly_prep
+constraint_poly_prep:
+	@cast call $(preparer_contract) $$(cat stylus/testdata/poly_input.hex)  --rpc-url nitro
+
 .PHONY: constraint_poly_fin
 constraint_poly_fin:
-	cast call 0x525c2aba45f66987217323e8a05ea400c65d06dc $$(cat test/testdata/fin_input.hex)  --rpc-url nitro
+	cast call 0x525c2aba45f66987217323e8a05ea400c65d06dc $$(cat stylus/testdata/fin_input.hex)  --rpc-url nitro
 
 .PHONY: constraint_poly_fin-test
 constraint_poly_fin-test:
 	@EXPECTED="0x06830dfba344bbbb4521412ab453a5883b76d7649286a365017d2eb2984ad636"; \
-	ACTUAL=$$(cast call 0x525c2aba45f66987217323e8a05ea400c65d06dc $$(cat test/testdata/fin_input.hex) --rpc-url nitro); \
+	ACTUAL=$$(cast call 0x525c2aba45f66987217323e8a05ea400c65d06dc $$(cat stylus/testdata/fin_input.hex) --rpc-url nitro); \
 	if [ "$$ACTUAL" = "$$EXPECTED" ]; then \
 		echo "Test passed!"; \
 		echo "$$ACTUAL"; \

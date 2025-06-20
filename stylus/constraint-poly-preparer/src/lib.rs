@@ -10,26 +10,28 @@ use alloc::vec::Vec;
 
 use stylus_sdk::alloy_primitives::{address, hex, uint, Address, U256};
 use stylus_sdk::call::{static_call, Call};
-use stylus_sdk::prelude::*;
 use stylus_sdk::stylus_core::calls::errors::Error;
+use stylus_sdk::{prelude::*, ArbResult};
 
 const PRIME: U256 = uint!(0x800000000000011000000000000000000000000000000000000000000000001_U256);
 const TRACE_LEN_IDX: usize = 7;
 const TRACE_GENERATOR_IDX: usize = 33;
 const OODS_POINT_IDX: usize = 34;
-
+const EXPECTED_INPUT_LEN: usize = 0x1d40; // 7488 bytes
 #[storage]
 #[entrypoint]
 pub struct ConstraintPolyPreparer;
 
 #[public]
 impl ConstraintPolyPreparer {
-    pub fn compute_poly_data(calldata_words: Vec<U256>) -> Result<Vec<U256>, Vec<u8>> {
-        if calldata_words.len() != 233 {
-            return Err(format!("Invalid calldata length: {}", calldata_words.len())
+    #[fallback]
+    fn compute(&mut self, _calldata: &[u8]) -> ArbResult {
+        if _calldata.len() != EXPECTED_INPUT_LEN {
+            return Err(format!("Invalid calldata length: {}", _calldata.len())
                 .as_bytes()
                 .to_vec());
         }
+        let calldata_words: Vec<U256> = _calldata.chunks(32).map(U256::from_be_slice).collect();
         let trace_len = calldata_words[TRACE_LEN_IDX];
         let trace_generator = calldata_words[TRACE_GENERATOR_IDX];
         let point = calldata_words[OODS_POINT_IDX];
@@ -60,7 +62,12 @@ impl ConstraintPolyPreparer {
             }
         };
 
-        Ok([composition_poly, domains].concat())
+        Ok([composition_poly, domains]
+            .concat()
+            .into_iter()
+            .map(|x| x.to_be_bytes::<32>())
+            .flatten()
+            .collect())
     }
 }
 
@@ -737,6 +744,24 @@ mod test {
     use stylus_sdk::alloy_primitives::{uint, U256};
 
     use stylus_sdk::testing::*;
+
+    #[test]
+    fn test_compute() {
+        let calldata: Vec<u8> = INPUT
+            .iter()
+            .map(|x| x.to_be_bytes::<32>())
+            .flatten()
+            .collect();
+        let mut output_data: Vec<u8> = Vec::new();
+        for x in COMPOSITION_POLY.iter().chain(DOMAINS.iter()) {
+            output_data.extend_from_slice(&x.to_be_bytes::<32>());
+        }
+        let vm = TestVM::default();
+        let mut contract = ConstraintPolyPreparer::from(&vm);
+        let result = contract.compute(&calldata).unwrap();
+        assert_eq!(result, output_data, "result is wrong");
+    }
+
     #[test]
     fn test_composition_polynomial() {
         let result = ConstraintPolyPreparer::composition_polynomial(&INPUT).unwrap();
@@ -768,6 +793,7 @@ mod test {
         }
     }
 
+    // 7488 bytes
     const INPUT: [U256; 234] = uint!([
         0x041f59009d6eea6c8d13ea2d4221e632ee2496908d1f4f5c73c1aa2777c925ad_U256, //0
         0x039d6cb187aa47ac255b9bb423fa6811714d6b31059083b7e4b8813ee6d27e83_U256, //1
@@ -1059,6 +1085,7 @@ mod test {
         0x062b67bdc72e40797acd4d574bcc745e02a5052c2434b4507d5cc947dcfae72a_U256, //284
         0x04b890835f6e76126680bd97b8c8d6305750aa8076a955238388c0c88badc3f1_U256, // 0x23a0 (285)
     ]);
+
     const DOMAINS: [U256; 28] = uint!([
         0x0717cef815ffd73e01300e4c4b518bebb8692c5a7381e2b84f05cc91d07ffe78_U256, // 334
         0x0474b97bd62ecfe1178d9c28cc08df94663431591d0815584d6d90f5ef2f37f5_U256,
@@ -1089,6 +1116,7 @@ mod test {
         0x05a74aa929893f985e810344eff915cfa7fc4348176fc45f2691fa75b2b5b3a9_U256,
         0x016068c68d3917811175ab74152205a07bec1ffb49f1ed0f9d153e3d57631f07_U256, // 361
     ]);
+
     const EXPODS: [U256; 48] = uint!([
         0x029c4e1a5097b18b451a2bb5af911a8a1cd84c2c26a83f06fce9630376092de5_U256, //286
         0x0571a193b64de06cbd7d24931ccdd6a42a2c10fd6f7c2a61d040e3ab2b4f6500_U256, //287
