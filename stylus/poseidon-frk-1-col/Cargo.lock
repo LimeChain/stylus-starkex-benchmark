@@ -3317,21 +3317,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pederson-frk-1-col"
-version = "0.1.11"
-dependencies = [
- "alloy-primitives",
- "alloy-sol-types",
- "dotenv",
- "ethers",
- "eyre",
- "hex",
- "motsu",
- "stylus-sdk 0.9.0",
- "tokio",
-]
-
-[[package]]
 name = "pem"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3466,6 +3451,21 @@ name = "pkg-config"
 version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
+
+[[package]]
+name = "poseidon-frk-1-col"
+version = "0.1.11"
+dependencies = [
+ "alloy-primitives",
+ "alloy-sol-types",
+ "dotenv",
+ "ethers",
+ "eyre",
+ "hex",
+ "motsu",
+ "stylus-sdk 0.9.0",
+ "tokio",
+]
 
 [[package]]
 name = "potential_utf"

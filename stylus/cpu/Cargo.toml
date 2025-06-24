@@ -9,7 +9,7 @@ keywords = ["arbitrum", "ethereum", "stylus", "alloy"]
 description = "Stylus cpu verifier"
 
 [dependencies]
-offsets = { path = "../offsets" }
+offsets = { path = "../offsets", version = "0.1.0" }
 alloy-primitives = "=0.8.20"
 alloy-sol-types = "=0.8.20"
 mini-alloc = "0.8.4"

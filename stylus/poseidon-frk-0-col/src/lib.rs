@@ -1,25 +1,4 @@
 //!
-//! Stylus Hello World
-//!
-//! The following contract implements the Counter example from Foundry.
-//!
-//! ```solidity
-//! contract Counter {
-//!     uint256 public number;
-//!     function setNumber(uint256 newNumber) public {
-//!         number = newNumber;
-//!     }
-//!     function increment() public {
-//!         number++;
-//!     }
-//! }
-//! ```
-//!
-//! The program is ABI-equivalent with Solidity, which means you can call it from both Solidity and Rust.
-//! To do this, run `cargo stylus export-abi`.
-//!
-//! Note: this code is a template-only and has not been audited.
-//!
 // Allow `cargo stylus export-abi` to generate a main function.
 #![cfg_attr(not(any(test, feature = "export-abi")), no_main)]
 #![cfg_attr(not(any(test, feature = "export-abi")), no_std)]
@@ -32,7 +11,9 @@ use stylus_sdk::alloy_primitives::{uint, U256};
 /// Import items from the SDK. The prelude contains common traits and macros.
 use stylus_sdk::prelude::*;
 const PRIME: U256 = uint!(0x800000000000011000000000000000000000000000000000000000000000001_U256);
-const COEFFS: [U256; 8] = [
+const COEFF_LAST: U256 =
+    uint!(0x47da67f078d657e777a79423be81a5d41f445f9455b207ec9768858cfd134f1_U256);
+const COEFFS: [U256; 7] = [
     uint!(0x2574ea7cc37bd716e0ec143a2420103589ba7b2af9d6b07569af3b108450a90_U256),
     uint!(0x712a2cab5d2a48c76a95de8f29a898d655cc216172a400ca054d6eb9950d698_U256),
     uint!(0x7865d89fa1e9dce49da0ac14d7437366bd450fb823a4fd3d2d8b1726f924c8f_U256),
@@ -40,10 +21,7 @@ const COEFFS: [U256; 8] = [
     uint!(0x11eaccb2939fb9e21a2a44d6f1e0608aac4248f817bc9458cce8a56077a22b1_U256),
     uint!(0x5f3e9a55edfd3f6abac770ff5606fca5aaf7074bedae94ade74395453235e8e_U256),
     uint!(0x7ed6ec4a18e23340489e4e36db8f4fcebf6b6ebd56185c29397344c5deea4c8_U256),
-    uint!(0x47da67f078d657e777a79423be81a5d41f445f9455b207ec9768858cfd134f1_U256),
 ];
-// Define some persistent storage using the Solidity ABI.
-// `Counter` will be the entrypoint.
 
 #[storage]
 #[entrypoint]
@@ -52,16 +30,11 @@ pub struct PoseidonPoseidonFullRoundKey0Column;
 #[public]
 impl PoseidonPoseidonFullRoundKey0Column {
     pub fn compute(x: U256) -> U256 {
-        let mut result: U256 = (U256::ZERO * x) % PRIME + COEFFS[6];
-        result = result.mul_mod(x, PRIME) + COEFFS[5];
-        result = result.mul_mod(x, PRIME) + COEFFS[4];
-        result = result.mul_mod(x, PRIME) + COEFFS[3];
-        result = result.mul_mod(x, PRIME) + COEFFS[2];
-        result = result.mul_mod(x, PRIME) + COEFFS[1];
-        result = result.mul_mod(x, PRIME) + COEFFS[0];
-        result = result.mul_mod(x, PRIME) + COEFFS[7];
+        let result = COEFFS.iter().rev().fold(U256::ZERO, |acc, &coeff| {
+            acc.mul_mod(x, PRIME).wrapping_add(coeff)
+        });
 
-        result % PRIME
+        result.mul_mod(x, PRIME).wrapping_add(COEFF_LAST) % PRIME
     }
 }
 

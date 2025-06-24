@@ -57,28 +57,12 @@ periodic_columns_deploy:
 	--private-key $(pk) \
 	--broadcast
 
-.PHONY: solidity-deploy-poseidon-full-0
-solidity-deploy-poseidon-full-0:
-	forge script script/Poseidon0Full.s.sol \
-	--rpc-url ${rpc_url} \
-	--private-key $(pk) \
+.PHONY: cpu_constraint_poly_deploy
+cpu_constraint_poly_deploy:
+	forge script script/CpuConstraintPoly.s.sol:CpuConstraintPolyScript \
+	--rpc-url anvil \
+	--private-key $(nitro_pk) \
 	--broadcast
-
-.PHONY: stylus-deploy-poseidon-full-0
-stylus-deploy-poseidon-full-0:
-	cd ./stylus/poseidon-frk-0-col && cargo stylus deploy --private-key=$(pk) --estimate-gas
-
-.PHONY: solidity-deploy-poseidon-full-1
-solidity-deploy-poseidon-full-1:
-	forge script script/Poseidon1Full.s.sol \
-	--rpc-url ${rpc_url} \
-	--private-key $(pk) \
-	--broadcast
-
-.PHONY: stylus-deploy-poseidon-full-1
-stylus-deploy-poseidon-full-1:
-	cd ./stylus/poseidon-frk-1-col && cargo stylus deploy --private-key=$(pk) --estimate-gas
-
 
 .PHONY: periodic_columns_pedersen_test
 periodic_columns_pedersen_test:
@@ -88,14 +72,19 @@ periodic_columns_pedersen_test:
 .PHONY: periodic_columns_poseidon_test
 periodic_columns_poseidon_test:
 	forge test --match-test testPoseidonPoseidonColumnCompute \
-	--fork-url ${rpc_url}  -vvv --gas-report
+	--fork-url nitro  -vvv
 
 .PHONY: periodic_columns_pederson_frk_0_col_test
 periodic_columns_pederson_frk_0_col_test:
 	forge test --match-test testPedersonFrk0ColumnCompute \
 	--fork-url ${rpc_url}  -vvv 
 
-per_col_contract=0x75E0E92A79880Bd81A69F72983D03c75e2B33dC8
+.PHONY: cpu_constraint_poly_test
+cpu_constraint_poly_test:
+	forge test --match-test testCpuConstraintPolyFromRealTx \
+	--fork-url anvil  -vvv --gas-limit 2000000000
+
+per_col_contract=0x72219e4c1b76276253a852ab058374d1dd5529be
 # cumulativeGasUsed    23252
 .PHONY: poseidonPartialRoundKey0ColumnCast
 poseidonPartialRoundKey0ColumnCast:
@@ -103,14 +92,69 @@ poseidonPartialRoundKey0ColumnCast:
 	513761785516736576210258345954495650460389361631034617172115002511570125974 \
 	--rpc-url ${rpc_url} --private-key $(pk) -vvv --gas-limit 2000000
 
-.PHONY: ps_0_full_compute
-ps_0_full_compute:
-	cast send $(contract) "compute(uint256)" \
+# frk0_contract=0x4A2bA922052bA54e29c5417bC979Daaf7D5Fe4f4
+frk0_contract=0x47cec0749bd110bc11f9577a70061202b1b6c034
+# cumulativeGasUsed
+# Solidity:    22068
+# Stylus: 37459
+# -- Partial round key 0 column
+# cumulativeGasUsed
+# Solidity: 23252
+# Stylus: 50564
+# PoseidonPoseidonPartialRoundKey0Column
+# Stylus: 50294
+.PHONY: poseidonPoseidonFullRoundKey0ColumnCast
+poseidonPoseidonFullRoundKey0ColumnCast:
+	cast send $(frk0_contract) "compute(uint256)" \
 	513761785516736576210258345954495650460389361631034617172115002511570125974 \
 	--rpc-url ${rpc_url} --private-key $(pk) -vvv --gas-limit 2000000
 
-.PHONY: pederson_x_cast
-pederson_x_cast:
-	cast send $(contract) "compute(uint256)" \
+
+pedersen_contract=0x8e1308925a26cb5cF400afb402d67B3523473379
+# cumulativeGasUsed    
+# PedersenHashPointsXColumn
+# Solidity: 32712
+# Stylus: 151995
+# PedersenHashPointsYColumn
+# Solidity: 32712
+# Stylus: 152012
+.PHONY: pedersen_cast
+pedersen_cast:
+	cast send $(pedersen_contract) "compute(uint256)" \
 	2502371038239847331946845555940821891939660827069539886818086403686260021246 \
-	--rpc-url ${rpc_url} --private-key $(pk) -vvv --gas-limit 2000000
+	--rpc-url nitro --private-key $(nitro_pk) -vvv --gas-limit 2000000
+
+
+.PHONY: pedersen_cast_call
+pedersen_cast_call:
+	cast call $(pedersen_contract) "compute(uint256)" \
+	2502371038239847331946845555940821891939660827069539886818086403686260021246 \
+	--rpc-url nitro  --private-key $(nitro_pk) -vvv
+
+
+poly_contract=0x525c2aba45f66987217323e8a05ea400c65d06dc
+fin_contract=0x525c2aba45f66987217323e8a05ea400c65d06dc
+preparer_contract=0x4a2ba922052ba54e29c5417bc979daaf7d5fe4f4
+.PHONY: constraint_poly_cast
+constraint_poly_cast:
+	cast call 0x525c2aba45f66987217323e8a05ea400c65d06dc $$(cat poly_input)  --rpc-url nitro
+
+.PHONY: constraint_poly_prep
+constraint_poly_prep:
+	@cast call $(preparer_contract) $$(cat stylus/testdata/poly_input.hex)  --rpc-url nitro
+
+.PHONY: constraint_poly_fin
+constraint_poly_fin:
+	cast call 0x525c2aba45f66987217323e8a05ea400c65d06dc $$(cat stylus/testdata/fin_input.hex)  --rpc-url nitro
+
+.PHONY: constraint_poly_fin-test
+constraint_poly_fin-test:
+	@EXPECTED="0x06830dfba344bbbb4521412ab453a5883b76d7649286a365017d2eb2984ad636"; \
+	ACTUAL=$$(cast call 0x525c2aba45f66987217323e8a05ea400c65d06dc $$(cat stylus/testdata/fin_input.hex) --rpc-url nitro); \
+	if [ "$$ACTUAL" = "$$EXPECTED" ]; then \
+		echo "Test passed!"; \
+		echo "$$ACTUAL"; \
+	else \
+		echo "Test failed: expected $$EXPECTED, got $$ACTUAL"; \
+		exit 1; \
+	fi

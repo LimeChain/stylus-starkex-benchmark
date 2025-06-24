@@ -17,6 +17,7 @@ use stylus_sdk::{
     prelude::*,
 };
 
+// Lyubo: Reuse the macros from the cpu verifier
 macro_rules! require {
     ($cond:expr, $msg:expr) => {
         if !$cond {
