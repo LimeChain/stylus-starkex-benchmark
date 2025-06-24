@@ -4,13 +4,11 @@ pragma solidity ^0.6.12;
 import "../cpu/CairoBootloaderProgram.sol";
 import "../cpu/CairoVerifierContract.sol";
 import "../cpu/MemoryPageFactRegistry.sol";
-import "../interfaces/Identity.sol";
 import "../PrimeFieldElement0.sol";
 import "./GpsOutputParser.sol";
 
 contract GpsStatementVerifier is
     GpsOutputParser,
-    Identity,
     CairoBootloaderProgramSize,
     PrimeFieldElement0
 {
@@ -48,7 +46,7 @@ contract GpsStatementVerifier is
         simpleBootloaderProgramHash_ = simpleBootloaderProgramHash;
     }
 
-    function identify() external pure override returns (string memory) {
+    function identify() external pure returns (string memory) {
         return "StarkWare_GpsStatementVerifier_2022_5";
     }
 

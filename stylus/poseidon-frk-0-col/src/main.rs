@@ -6,5 +6,5 @@ pub extern "C" fn main() {}
 
 #[cfg(feature = "export-abi")]
 fn main() {
-    pederson_frk_0_col::print_from_args();
+    poseidon_frk_0_col::print_from_args();
 }
