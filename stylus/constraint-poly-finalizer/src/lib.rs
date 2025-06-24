@@ -1,4 +1,11 @@
 // Allow `cargo stylus export-abi` to generate a main function.
+// |<------------------- calldata (bytes) ------------------>|
+// |       input        | composition_poly |    domains      |
+// | 234 x U256 (32B)   |  52 x U256 (32B) | 28 x U256 (32B) |
+// | bytes: 7488        | bytes: 1664      | bytes: 928      |
+// |--------------------|------------------|-----------------|
+// | 0       ...   233  | 234  ...   285   | 286  ...  313   |
+// |--------------------|------------------|-----------------|
 #![cfg_attr(not(any(test, feature = "export-abi")), no_main)]
 #![cfg_attr(not(any(test, feature = "export-abi")), no_std)]
 
@@ -7,84 +14,104 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
-use stylus_sdk::alloy_primitives::{uint, Address, U256};
-use stylus_sdk::call::{static_call, Call};
-
+use stylus_sdk::alloy_primitives::{uint, U256};
 use stylus_sdk::stylus_core::calls::errors::Error;
 use stylus_sdk::{prelude::*, ArbResult};
 
 // debug imports
 const PRIME: U256 = uint!(0x800000000000011000000000000000000000000000000000000000000000001_U256);
 
-sol_storage! {
-    #[entrypoint]
-    pub struct ConstraintPoly {
-        address preparer_address;
+#[entrypoint]
+#[storage]
+pub struct ConstraintPolyFinalizer;
+impl ConstraintPolyFinalizer {
+    pub fn denominator_invs(domains: &[U256]) -> Result<Vec<U256>, Error> {
+        let denominator_idx = [
+            0, 3, 4, 20, 21, 1, 22, 2, 23, 24, 15, 16, 17, 19, 8, 5, 10, 6,
+        ];
+        let mut partial_products = [U256::ZERO; 18];
+        let mut prod = U256::from(1);
+
+        // Build partial products
+        for (i, idx) in denominator_idx.iter().enumerate() {
+            partial_products[i] = prod;
+            prod = prod.mul_mod(domains[*idx], PRIME);
+        }
+
+        // Compute inverse of the total product
+        let mut prod_inv = prod.pow_mod(PRIME.wrapping_sub(U256::from(2)), PRIME);
+        if prod_inv.is_zero() {
+            return Err(Error::Revert("Batch inverse product is zero.".into()));
+        }
+
+        // Compute inverses
+        let mut inverses = vec![U256::ZERO; denominator_idx.len()];
+        for i in (0..denominator_idx.len()).rev() {
+            inverses[i] = partial_products[i].mul_mod(prod_inv, PRIME);
+            prod_inv = prod_inv.mul_mod(domains[denominator_idx[i]], PRIME);
+        }
+
+        Ok(inverses)
+    }
+    fn flag_constraint(flag: U256, den_inv: U256, alpha_pow: U256) -> U256 {
+        flag.mul_mod(flag, PRIME)
+            .add_mod(PRIME.wrapping_sub(flag), PRIME)
+            .mul_mod(den_inv, PRIME)
+            .mul_mod(alpha_pow, PRIME)
+    }
+    fn res_val_constraint(res: U256, val: U256, den_inv: U256, alpha_pow: U256) -> U256 {
+        res.add_mod(val.mul_mod(den_inv, PRIME).mul_mod(alpha_pow, PRIME), PRIME)
+    }
+    fn res_val_const_with_sub(
+        input_term: U256,
+        sub_term: U256,
+        den_inv: U256,
+        alpha_pow: U256,
+        res: U256,
+    ) -> U256 {
+        res.add_mod(
+            input_term
+                .add_mod(PRIME.wrapping_sub(sub_term), PRIME)
+                .mul_mod(den_inv, PRIME)
+                .mul_mod(alpha_pow, PRIME),
+            PRIME,
+        )
     }
 }
 
 #[public]
-impl ConstraintPoly {
+impl ConstraintPolyFinalizer {
     #[fallback]
-    fn compute(&mut self, _calldata: &[u8]) -> ArbResult {
-        let poly_data: Vec<U256> = static_call(Call::new(), self.preparer_address.get(), _calldata)
-            .unwrap()
-            .chunks(32)
-            .map(U256::from_be_slice)
-            .collect();
+    pub fn compute(
+        &mut self,
+        _calldata: &[u8], // den_invs: Vec<U256>,
+    ) -> ArbResult {
+        let calldata_words: Vec<U256> = _calldata.chunks(32).map(U256::from_be_slice).collect();
+        let input: &[U256] = &calldata_words[..234];
+        let composition_poly: &[U256] = &calldata_words[234..286];
+        let domains: &[U256] = &calldata_words[286..];
 
-        // Compute the result of the composition polynomial.
-        let result = ConstraintPoly::compute_result(
-            _calldata
-                .chunks(32)
-                .map(U256::from_be_slice)
-                .collect::<Vec<U256>>()
-                .as_slice(),
-            &poly_data[..53],
-            &poly_data[53..71],
-            &poly_data[71..],
-        )
-        .unwrap();
-
-        Ok(result.to_be_bytes::<32>().to_vec())
-    }
-
-    #[constructor]
-    pub fn constructor(&mut self, preparer_address: Address) {
-        self.preparer_address.set(preparer_address);
-    }
-}
-
-impl ConstraintPoly {
-    fn compute_result(
-        input: &[U256],
-        composition_poly: &[U256],
-        domains: &[U256],
-        den_invs: &[U256],
-    ) -> Result<U256, Error> {
+        let den_invs = Self::denominator_invs(&domains)?;
         let mut res: U256 = U256::ZERO;
         let mut val: U256 = U256::ZERO;
-        let mut composition_alpha_pow = U256::ONE;
-        let composition_alpha = input[41]; // 0x520
-        {
-            val = composition_poly[0]
-                .mul_mod(composition_poly[0], PRIME)
-                .add_mod(PRIME.wrapping_sub(composition_poly[0]), PRIME)
-                .mul_mod(domains[3], PRIME)
-                .mul_mod(den_invs[0], PRIME);
-
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+        let mut alpha_pows = [U256::ONE; 124];
+        for i in 1..124 {
+            alpha_pows[i] = alpha_pows[i - 1].mul_mod(input[41], PRIME);
         }
-        {
-            val = input[42].mul_mod(den_invs[1], PRIME);
+        res = res
+            .add_mod(
+                Self::flag_constraint(composition_poly[0], domains[3], den_invs[0])
+                    .mul_mod(alpha_pows[0], PRIME),
+                PRIME,
+            )
+            .add_mod(
+                input[42]
+                    .mul_mod(den_invs[1], PRIME)
+                    .mul_mod(alpha_pows[1], PRIME),
+                PRIME,
+            );
 
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
-
         {
-            // Constraint for: cpu/decode/opcode_range_check_input
             val = input[92] // column3_row1 @ 0xb80
                 .add_mod(
                     PRIME.wrapping_sub(
@@ -100,148 +127,89 @@ impl ConstraintPoly {
                 )
                 .mul_mod(den_invs[2], PRIME) // denominator: point^(trace_length / 16) - 1
                 // Multiply by alpha^2
-                .mul_mod(composition_alpha_pow, PRIME);
+                .mul_mod(alpha_pows[2], PRIME);
 
             // Accumulate result
             res = res.add_mod(val, PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
         }
-        {
-            // Constraint expression for cpu/decode/flag_op1_base_op0_bit:
-            // flag * flag - flag = flag * (flag - 1)
-            val = composition_poly[4]
-                .mul_mod(composition_poly[4], PRIME)
-                .add_mod(PRIME.wrapping_sub(composition_poly[4]), PRIME)
-                .mul_mod(den_invs[2], PRIME);
-
-            // Accumulate into result: res += val * alpha^3
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-
-            // Advance alpha power for next term
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-            //res - 02511b83237dbb3e6f029f8cf9f9c4d9d1bcba5d2463f155ce5b20f722d49b31
-        }
-        {
-            // Constraint: flag * flag - flag = flag * (flag - 1)
-            let val = composition_poly[8]
-                .mul_mod(composition_poly[8], PRIME)
-                .add_mod(PRIME.wrapping_sub(composition_poly[8]), PRIME);
-
-            // Multiply by denominator inverse: point^(trace_length / 16) - 1
-            let val = val.mul_mod(den_invs[2], PRIME); // denominator_invs[2]
-
-            // Accumulate into result with current alpha power
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-
-            // Advance alpha power
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
-        {
-            // Constraint: flag * flag - flag = flag * (flag - 1)
-            val = composition_poly[11]
-                .mul_mod(composition_poly[11], PRIME)
-                .add_mod(PRIME.wrapping_sub(composition_poly[11]), PRIME);
-
-            // Apply denominator: point^(trace_length / 16) - 1
-            val = val.mul_mod(den_invs[2], PRIME);
-
-            // Accumulate into result with current alpha power
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-
-            // Advance alpha power
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
-        {
-            val = composition_poly[14]
-                .mul_mod(composition_poly[14], PRIME)
-                .add_mod(PRIME.wrapping_sub(composition_poly[14]), PRIME)
-                .mul_mod(den_invs[2], PRIME);
-            // Add to result with the current alpha power
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-
-            // Update alpha power
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
+        // Accumulate into result with current alpha power
+        res = res
+            .add_mod(
+                Self::flag_constraint(composition_poly[4], den_invs[2], alpha_pows[3]),
+                PRIME,
+            )
+            .add_mod(
+                Self::flag_constraint(composition_poly[8], den_invs[2], alpha_pows[4]),
+                PRIME,
+            )
+            .add_mod(
+                Self::flag_constraint(composition_poly[11], den_invs[2], alpha_pows[5]),
+                PRIME,
+            )
+            .add_mod(
+                Self::flag_constraint(composition_poly[14], den_invs[2], alpha_pows[6]),
+                PRIME,
+            );
 
         // Constraint expression for cpu/operands/mem_dst_addr:
         // val = input[99] + input[9] - (composition_poly[0] * input[200] + (1 - composition_poly[0]) * input[194] + input[147])
-        val = input[99]
-            .add_mod(input[9], PRIME)
-            .add_mod(
-                PRIME.wrapping_sub(
-                    composition_poly[0]
-                        .mul_mod(input[200], PRIME)
-                        .add_mod(
-                            U256::ONE
-                                .add_mod(PRIME.wrapping_sub(composition_poly[0]), PRIME)
-                                .mul_mod(input[194], PRIME),
-                            PRIME,
-                        )
-                        .add_mod(input[147], PRIME),
-                ),
-                PRIME,
-            )
-            .mul_mod(den_invs[2], PRIME);
+        val = input[99].add_mod(input[9], PRIME).add_mod(
+            PRIME.wrapping_sub(
+                composition_poly[0]
+                    .mul_mod(input[200], PRIME)
+                    .add_mod(
+                        U256::ONE
+                            .add_mod(PRIME.wrapping_sub(composition_poly[0]), PRIME)
+                            .mul_mod(input[194], PRIME),
+                        PRIME,
+                    )
+                    .add_mod(input[147], PRIME),
+            ),
+            PRIME,
+        );
 
         // res += val * alpha^7
-        res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-        composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+        res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[7]);
 
-        // Constraint: input[95] + input[9] - (
-        //   composition_poly[15] * input[200] +
-        //   (1 - composition_poly[15]) * input[194] +
-        //   input[155]
-        // )
-        val = input[95]
-            .add_mod(input[9], PRIME)
-            .add_mod(
-                PRIME.wrapping_sub(
-                    composition_poly[15]
-                        .mul_mod(input[200], PRIME)
-                        .add_mod(
-                            U256::ONE
-                                .add_mod(PRIME.wrapping_sub(composition_poly[15]), PRIME)
-                                .mul_mod(input[194], PRIME),
-                            PRIME,
-                        )
-                        .add_mod(input[155], PRIME),
-                ),
-                PRIME,
-            )
-            .mul_mod(den_invs[2], PRIME);
+        val = input[95].add_mod(input[9], PRIME).add_mod(
+            PRIME.wrapping_sub(
+                composition_poly[15]
+                    .mul_mod(input[200], PRIME)
+                    .add_mod(
+                        U256::ONE
+                            .add_mod(PRIME.wrapping_sub(composition_poly[15]), PRIME)
+                            .mul_mod(input[194], PRIME),
+                        PRIME,
+                    )
+                    .add_mod(input[155], PRIME),
+            ),
+            PRIME,
+        );
 
         // res += val * alpha^8
-        res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-        composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+        res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[8]);
 
-        val = input[103]
-            .add_mod(input[9], PRIME)
-            .add_mod(
-                PRIME.wrapping_sub(
-                    composition_poly[1]
-                        .mul_mod(input[91], PRIME)
-                        .add_mod(composition_poly[2].mul_mod(input[194], PRIME), PRIME)
-                        .add_mod(composition_poly[3].mul_mod(input[200], PRIME), PRIME)
-                        .add_mod(composition_poly[4].mul_mod(input[96], PRIME), PRIME)
-                        .add_mod(input[151], PRIME),
-                ),
-                PRIME,
-            )
-            .mul_mod(den_invs[2], PRIME);
+        val = input[103].add_mod(input[9], PRIME).add_mod(
+            PRIME.wrapping_sub(
+                composition_poly[1]
+                    .mul_mod(input[91], PRIME)
+                    .add_mod(composition_poly[2].mul_mod(input[194], PRIME), PRIME)
+                    .add_mod(composition_poly[3].mul_mod(input[200], PRIME), PRIME)
+                    .add_mod(composition_poly[4].mul_mod(input[96], PRIME), PRIME)
+                    .add_mod(input[151], PRIME),
+            ),
+            PRIME,
+        );
 
         // res += val * alpha^9
-        res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-        composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+        res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[9]);
 
-        val = input[197]
-            .add_mod(
-                PRIME.wrapping_sub(input[96].mul_mod(input[104], PRIME)),
-                PRIME,
-            )
-            .mul_mod(den_invs[2], PRIME);
+        val = input[197].add_mod(
+            PRIME.wrapping_sub(input[96].mul_mod(input[104], PRIME)),
+            PRIME,
+        );
 
-        res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-        composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+        res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[10]);
 
         // cpu/operands/res
         // (1 - bit_9) * col8_row12 - (bit_5 * (col3_row5 + col3_row13) + bit_6 * col8_row4 + flag_res_op1_0 * col3_row13)
@@ -256,12 +224,10 @@ impl ConstraintPoly {
                         .add_mod(composition_poly[8].mul_mod(input[104], PRIME), PRIME),
                 ),
                 PRIME,
-            )
-            .mul_mod(den_invs[2], PRIME);
+            );
 
         // res += val * alpha ** 11.
-        res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-        composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+        res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[11]);
 
         // Constraint: col8_row2 - bit_9 * col3_row9
         val = input[196]
@@ -269,11 +235,9 @@ impl ConstraintPoly {
                 PRIME.wrapping_sub(composition_poly[7].mul_mod(input[100], PRIME)),
                 PRIME,
             )
-            .mul_mod(domains[20], PRIME)
-            .mul_mod(den_invs[2], PRIME);
+            .mul_mod(domains[20], PRIME);
         // res += val * alpha ** 12.
-        res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-        composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+        res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[12]);
         {
             // Constraint: column8_row10 - column8_row2 * column8_row12
             val = input[202]
@@ -281,12 +245,10 @@ impl ConstraintPoly {
                     PRIME.wrapping_sub(input[196].mul_mod(input[203], PRIME)),
                     PRIME,
                 )
-                .mul_mod(domains[20], PRIME)
-                .mul_mod(den_invs[2], PRIME);
+                .mul_mod(domains[20], PRIME);
 
             // res += val * alpha^13
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[13]);
         }
         {
             // Intermediate values
@@ -321,14 +283,13 @@ impl ConstraintPoly {
                     PRIME,
                 );
 
-            let val = left
-                .add_mod(PRIME.wrapping_sub(right), PRIME)
-                .mul_mod(domains[20], PRIME)
-                .mul_mod(den_invs[2], PRIME);
-
-            // res += val * alpha^14
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = Self::res_val_constraint(
+                res,
+                left.add_mod(PRIME.wrapping_sub(right), PRIME)
+                    .mul_mod(domains[20], PRIME),
+                den_invs[2],
+                alpha_pows[14],
+            );
         }
 
         // res += val * alpha^15
@@ -341,10 +302,9 @@ impl ConstraintPoly {
                 )
                 .mul_mod(domains[20], PRIME)
                 .mul_mod(den_invs[2], PRIME)
-                .mul_mod(composition_alpha_pow, PRIME),
+                .mul_mod(alpha_pows[15], PRIME),
             PRIME,
         );
-        composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
         {
             // val = column8_row16 - (column8_row0 + bit10 * column8_row12 + bit11 + bit12 * 2)
             let term = input[194]
@@ -357,8 +317,7 @@ impl ConstraintPoly {
                 .mul_mod(domains[20], PRIME)
                 .mul_mod(den_invs[2], PRIME);
 
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[16], PRIME), PRIME);
         }
 
         // val = column8_row24 - (fp_update_regular_0 * column8_row8 + bit13 * column3_row9 + bit12 * (column8_row0 + 2))
@@ -379,98 +338,85 @@ impl ConstraintPoly {
                 )
                 .mul_mod(domains[20], PRIME)
                 .mul_mod(den_invs[2], PRIME)
-                .mul_mod(composition_alpha_pow, PRIME),
+                .mul_mod(alpha_pows[17], PRIME),
             PRIME,
         );
-        composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
 
         // val = bit_12 * (column3_row9 - column8_row8)
-        val = composition_poly[12]
-            .mul_mod(
+
+        res = Self::res_val_constraint(
+            res,
+            composition_poly[12].mul_mod(
                 input[100].add_mod(PRIME.wrapping_sub(input[200]), PRIME),
                 PRIME,
-            )
-            .mul_mod(den_invs[2], PRIME);
-
-        res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-        composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            ),
+            den_invs[2],
+            alpha_pows[18],
+        );
 
         // val = bit_12 * (column3_row5 - (column3_row0 + bit_2 + 1))
 
-        val = composition_poly[12]
-            .mul_mod(
-                input[96].add_mod(
-                    PRIME.wrapping_sub(
-                        input[91]
-                            .add_mod(composition_poly[1], PRIME)
-                            .add_mod(U256::ONE, PRIME),
-                    ),
-                    PRIME,
+        val = composition_poly[12].mul_mod(
+            input[96].add_mod(
+                PRIME.wrapping_sub(
+                    input[91]
+                        .add_mod(composition_poly[1], PRIME)
+                        .add_mod(U256::ONE, PRIME),
                 ),
                 PRIME,
-            )
-            .mul_mod(den_invs[2], PRIME);
+            ),
+            PRIME,
+        );
 
         // res += val * alpha ** 19.
-        res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-        composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+        res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[19]);
 
-        val = composition_poly[12]
-            .mul_mod(
-                input[147].add_mod(PRIME.wrapping_sub(input[9]), PRIME),
+        val = composition_poly[12].mul_mod(
+            input[147].add_mod(PRIME.wrapping_sub(input[9]), PRIME),
+            PRIME,
+        );
+
+        res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[20]);
+
+        val = composition_poly[12].mul_mod(
+            input[155].add_mod(
+                PRIME.wrapping_sub(input[9].add_mod(U256::ONE, PRIME)),
                 PRIME,
-            )
-            .mul_mod(den_invs[2], PRIME);
+            ),
+            PRIME,
+        );
 
-        res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-        composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+        res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[21]);
 
-        val = composition_poly[12]
-            .mul_mod(
-                input[155].add_mod(
-                    PRIME.wrapping_sub(input[9].add_mod(U256::ONE, PRIME)),
+        val = composition_poly[12].mul_mod(
+            composition_poly[12]
+                .add_mod(composition_poly[12], PRIME)
+                .add_mod(U256::from(1), PRIME)
+                .add_mod(U256::from(1), PRIME)
+                .add_mod(
+                    PRIME.wrapping_sub(
+                        composition_poly[0]
+                            .add_mod(composition_poly[15], PRIME)
+                            .add_mod(U256::from(4), PRIME),
+                    ),
                     PRIME,
                 ),
-                PRIME,
-            )
-            .mul_mod(den_invs[2], PRIME);
-
-        res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-        composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-
-        val = composition_poly[12]
-            .mul_mod(
-                composition_poly[12]
-                    .add_mod(composition_poly[12], PRIME)
-                    .add_mod(U256::from(1), PRIME)
-                    .add_mod(U256::from(1), PRIME)
-                    .add_mod(
-                        PRIME.wrapping_sub(
-                            composition_poly[0]
-                                .add_mod(composition_poly[15], PRIME)
-                                .add_mod(U256::from(4), PRIME),
-                        ),
-                        PRIME,
-                    ),
-                PRIME,
-            )
-            .mul_mod(den_invs[2], PRIME);
+            PRIME,
+        );
         // res += val * alpha ** 22.
-        res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-        composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        {
-            val = composition_poly[13]
-                .mul_mod(
-                    input[147]
-                        .add_mod(U256::from(2), PRIME)
-                        .add_mod(PRIME.wrapping_sub(input[9]), PRIME),
-                    PRIME,
-                )
-                .mul_mod(den_invs[2], PRIME);
+        res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[22]);
 
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
+        res = Self::res_val_constraint(
+            res,
+            composition_poly[13].mul_mod(
+                input[147]
+                    .add_mod(U256::from(2), PRIME)
+                    .add_mod(PRIME.wrapping_sub(input[9]), PRIME),
+                PRIME,
+            ),
+            den_invs[2],
+            alpha_pows[23],
+        );
 
         {
             let val = composition_poly[13].mul_mod(
@@ -480,10 +426,7 @@ impl ConstraintPoly {
                 PRIME,
             );
 
-            let val = val.mul_mod(den_invs[2], PRIME);
-
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[24]);
         }
         {
             let sum = composition_poly[9]
@@ -492,79 +435,74 @@ impl ConstraintPoly {
                 .add_mod(composition_poly[8], PRIME)
                 .add_mod(PRIME.wrapping_sub(U256::from(4)), PRIME);
 
-            val = composition_poly[13]
-                .mul_mod(sum, PRIME)
-                .mul_mod(den_invs[2], PRIME);
-            // res += val * alpha ** 25.
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = Self::res_val_constraint(
+                res,
+                composition_poly[13].mul_mod(sum, PRIME),
+                den_invs[2],
+                alpha_pows[25],
+            );
         }
-        {
-            let val = composition_poly[19].mul_mod(
+
+        res = Self::res_val_constraint(
+            res,
+            composition_poly[19].mul_mod(
                 input[100].add_mod(PRIME.wrapping_sub(input[203]), PRIME),
                 PRIME,
-            );
+            ),
+            den_invs[2],
+            alpha_pows[26],
+        );
 
-            let val = val.mul_mod(den_invs[2], PRIME);
+        res = Self::res_val_constraint(
+            res,
+            input[194].add_mod(PRIME.wrapping_sub(input[10]), PRIME),
+            den_invs[4],
+            alpha_pows[27],
+        );
 
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
-        {
-            let val = input[194].add_mod(PRIME.wrapping_sub(input[10]), PRIME);
-            let val = val.mul_mod(den_invs[4], PRIME);
+        res = Self::res_val_constraint(
+            res,
+            input[200].add_mod(PRIME.wrapping_sub(input[10]), PRIME),
+            den_invs[4],
+            alpha_pows[28],
+        );
 
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
-        {
-            let val = input[200].add_mod(PRIME.wrapping_sub(input[10]), PRIME);
-            let val = val.mul_mod(den_invs[4], PRIME);
-
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
         {
             res = res.add_mod(
                 input[91]
                     .add_mod(PRIME.wrapping_sub(input[11]), PRIME)
                     .mul_mod(den_invs[4], PRIME)
-                    .mul_mod(composition_alpha_pow, PRIME),
+                    .mul_mod(alpha_pows[29], PRIME),
                 PRIME,
             );
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
         }
-        {
-            // res += val * alpha ** 30.
-            res = res.add_mod(
-                input[194]
-                    .add_mod(PRIME.wrapping_sub(input[12]), PRIME)
-                    .mul_mod(den_invs[3], PRIME)
-                    .mul_mod(composition_alpha_pow, PRIME),
-                PRIME,
-            );
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
+
+        // res += val * alpha ** 30.
+        res = res.add_mod(
+            input[194]
+                .add_mod(PRIME.wrapping_sub(input[12]), PRIME)
+                .mul_mod(den_invs[3], PRIME)
+                .mul_mod(alpha_pows[30], PRIME),
+            PRIME,
+        );
 
         // res += val * alpha ** 31.
         res = res.add_mod(
             input[200]
                 .add_mod(PRIME.wrapping_sub(input[10]), PRIME)
                 .mul_mod(den_invs[3], PRIME)
-                .mul_mod(composition_alpha_pow, PRIME),
+                .mul_mod(alpha_pows[31], PRIME),
             PRIME,
         );
-        composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
 
         // res += val * alpha ** 32.
         res = res.add_mod(
             input[91]
                 .add_mod(PRIME.wrapping_sub(input[13]), PRIME)
                 .mul_mod(den_invs[3], PRIME)
-                .mul_mod(composition_alpha_pow, PRIME),
+                .mul_mod(alpha_pows[32], PRIME),
             PRIME,
         );
-        composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
         {
             let term1 = input[14].add_mod(
                 PRIME.wrapping_sub(input[133].add_mod(input[15].mul_mod(input[134], PRIME), PRIME)),
@@ -575,12 +513,10 @@ impl ConstraintPoly {
                 .mul_mod(input[230], PRIME)
                 .add_mod(input[91], PRIME)
                 .add_mod(input[15].mul_mod(input[92], PRIME), PRIME)
-                .add_mod(PRIME.wrapping_sub(input[14]), PRIME)
-                .mul_mod(den_invs[4], PRIME);
+                .add_mod(PRIME.wrapping_sub(input[14]), PRIME);
 
             // res += val * alpha ** 33.
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[4], alpha_pows[33]);
         }
         {
             let term1 = input[14].add_mod(
@@ -597,28 +533,26 @@ impl ConstraintPoly {
                 .mul_mod(input[232], PRIME)
                 .add_mod(PRIME.wrapping_sub(term2.mul_mod(input[230], PRIME)), PRIME);
 
-            let val = val.mul_mod(domains[22], PRIME).mul_mod(den_invs[5], PRIME);
-
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = Self::res_val_constraint(
+                res,
+                val.mul_mod(domains[22], PRIME),
+                den_invs[5],
+                alpha_pows[34],
+            );
         }
         {
             let val = input[230].add_mod(PRIME.wrapping_sub(input[16]), PRIME);
 
-            let val = val.mul_mod(den_invs[6], PRIME);
-
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[6], alpha_pows[35]);
         }
         {
             val = composition_poly[20]
                 .mul_mod(composition_poly[20], PRIME)
                 .add_mod(PRIME.wrapping_sub(composition_poly[20]), PRIME)
-                .mul_mod(domains[22], PRIME)
-                .mul_mod(den_invs[5], PRIME);
+                .mul_mod(domains[22], PRIME);
             // res += val * alpha ** 36.
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            // res = res.add_mod(val.mul_mod(alpha_pows[36], PRIME), PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[5], alpha_pows[36]);
         }
         {
             //06185fe9960b9c13158b8394c6428cb4c4957440fb05f151aa2b53de8a57367d
@@ -631,31 +565,25 @@ impl ConstraintPoly {
                 .mul_mod(domains[22], PRIME)
                 .mul_mod(den_invs[5], PRIME);
             // res += val * alpha ** 37.
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[37], PRIME), PRIME);
         }
-        {
-            // 05bad851e9e63d1abe516c2e84dd2c865b45d8a2441792961e17689ec0d66eb7
-            let val = input[133]
-                .add_mod(PRIME.wrapping_sub(U256::from(1)), PRIME)
-                .mul_mod(den_invs[4], PRIME);
-            // res += val * alpha ** 38.
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
-        {
-            let val = input[93].mul_mod(den_invs[2], PRIME);
-            // res += val * alpha ** 39.
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
-        {
-            let val = input[94] // input[94] = 0xbc0
-                .mul_mod(den_invs[2], PRIME);
 
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
+        // res += val * alpha ** 38.
+
+        res = Self::res_val_constraint(
+            Self::res_val_constraint(
+                res,
+                input[133].add_mod(PRIME.wrapping_sub(U256::from(1)), PRIME),
+                den_invs[4],
+                alpha_pows[38],
+            ),
+            input[93],
+            den_invs[2],
+            alpha_pows[39],
+        );
+
+        res = Self::res_val_constraint(res, input[94], den_invs[2], alpha_pows[40]);
+
         {
             let val = input[17]
                 .add_mod(PRIME.wrapping_sub(input[149]), PRIME)
@@ -664,8 +592,7 @@ impl ConstraintPoly {
                 .add_mod(PRIME.wrapping_sub(input[17]), PRIME)
                 .mul_mod(den_invs[4], PRIME);
 
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[41], PRIME), PRIME);
         }
         {
             let lhs = input[17]
@@ -678,57 +605,48 @@ impl ConstraintPoly {
 
             let val = lhs
                 .add_mod(PRIME.wrapping_sub(rhs), PRIME)
-                .mul_mod(domains[23], PRIME)
-                .mul_mod(den_invs[7], PRIME);
+                .mul_mod(domains[23], PRIME);
 
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[7], alpha_pows[42]);
         }
-        {
-            let val = input[231]
-                .add_mod(PRIME.wrapping_sub(input[18]), PRIME)
-                .mul_mod(den_invs[8], PRIME);
 
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
-        {
-            let diff = composition_poly[21]; // 0x1fe0 = 255
-            let val = diff
-                .mul_mod(diff, PRIME)
-                .add_mod(PRIME.wrapping_sub(diff), PRIME)
-                .mul_mod(domains[23], PRIME)
-                .mul_mod(den_invs[7], PRIME);
+        res = Self::res_val_constraint(
+            res,
+            input[231].add_mod(PRIME.wrapping_sub(input[18]), PRIME),
+            den_invs[8],
+            alpha_pows[43],
+        );
 
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
+        // let diff = composition_poly[21]; // 0x1fe0 = 255
+
+        res = res.add_mod(
+            Self::flag_constraint(composition_poly[21], domains[23], den_invs[7])
+                .mul_mod(alpha_pows[44], PRIME),
+            PRIME,
+        );
+
         {
             let val = input[149] // column6_row2
                 .add_mod(PRIME.wrapping_sub(input[19]), PRIME) // range_check_min
                 .mul_mod(den_invs[4], PRIME);
             // res += val * alpha ** 45.
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[45], PRIME), PRIME);
         }
         {
             let val = input[149]
                 .add_mod(PRIME.wrapping_sub(input[20]), PRIME)
                 .mul_mod(den_invs[8], PRIME);
 
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[46], PRIME), PRIME);
         }
         {
             let val = input[21]
                 .add_mod(PRIME.wrapping_sub(input[89]), PRIME)
                 .mul_mod(input[228], PRIME)
                 .add_mod(input[58], PRIME)
-                .add_mod(PRIME.wrapping_sub(input[21]), PRIME)
-                .mul_mod(den_invs[4], PRIME);
+                .add_mod(PRIME.wrapping_sub(input[21]), PRIME);
 
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[4], alpha_pows[47]);
         }
         {
             let lhs = input[21]
@@ -741,78 +659,68 @@ impl ConstraintPoly {
 
             let val = lhs
                 .add_mod(PRIME.wrapping_sub(rhs), PRIME)
-                .mul_mod(domains[24], PRIME)
-                .mul_mod(den_invs[0], PRIME);
+                .mul_mod(domains[24], PRIME);
 
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[0], alpha_pows[48]);
         }
-        {
-            let val = input[228]
-                .add_mod(PRIME.wrapping_sub(input[22]), PRIME)
-                .mul_mod(den_invs[9], PRIME);
 
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
-        {
-            let val = input[226]
-                .add_mod(PRIME.wrapping_sub(U256::ONE), PRIME)
-                .mul_mod(den_invs[4], PRIME);
+        // let val = input[226]
+        //     .add_mod(PRIME.wrapping_sub(U256::ONE), PRIME)
+        //     .mul_mod(den_invs[4], PRIME);
 
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
-        {
-            let val = input[89]
-                .add_mod(PRIME.wrapping_sub(input[23]), PRIME)
-                .mul_mod(den_invs[4], PRIME);
+        // res = res.add_mod(val.mul_mod(alpha_pows[50], PRIME), PRIME);
 
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
+        // res = res.add_mod(val.mul_mod(alpha_pows[51], PRIME), PRIME);
+        res = Self::res_val_const_with_sub(
+            input[89],
+            input[23],
+            den_invs[4],
+            alpha_pows[51],
+            Self::res_val_const_with_sub(
+                input[226],
+                U256::ONE,
+                den_invs[4],
+                alpha_pows[50],
+                Self::res_val_const_with_sub(
+                    input[228],
+                    input[22],
+                    den_invs[9],
+                    alpha_pows[49],
+                    res,
+                ),
+            ),
+        );
+
         {
             let diff = input[90].add_mod(PRIME.wrapping_sub(input[89]), PRIME);
 
-            let val = input[227]
-                .add_mod(
-                    PRIME.wrapping_sub(
-                        input[226]
-                            .mul_mod(
-                                U256::ONE.add_mod(input[24].mul_mod(diff, PRIME), PRIME),
-                                PRIME,
-                            )
-                            .add_mod(input[25].mul_mod(diff, PRIME).mul_mod(diff, PRIME), PRIME),
-                    ),
-                    PRIME,
-                )
-                .mul_mod(domains[24], PRIME)
-                .mul_mod(den_invs[0], PRIME);
-            // res += val * alpha ** 52.
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
-        {
-            let val = input[226]
-                .add_mod(PRIME.wrapping_sub(input[26]), PRIME)
-                .mul_mod(den_invs[9], PRIME);
-
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
-        {
-            let val = input[185]
-                .mul_mod(
-                    input[169].add_mod(
-                        PRIME.wrapping_sub(input[173].add_mod(input[173], PRIME)),
+            let sub_term = PRIME.wrapping_sub(
+                input[226]
+                    .mul_mod(
+                        U256::ONE.add_mod(input[24].mul_mod(diff, PRIME), PRIME),
                         PRIME,
-                    ),
-                    PRIME,
-                )
-                .mul_mod(den_invs[10], PRIME);
+                    )
+                    .add_mod(input[25].mul_mod(diff, PRIME).mul_mod(diff, PRIME), PRIME),
+            );
+            let val = input[227]
+                .add_mod(sub_term, PRIME)
+                .mul_mod(domains[24], PRIME);
+            // res += val * alpha ** 52.
+            res = Self::res_val_constraint(res, val, den_invs[0], alpha_pows[52]);
+        }
 
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+        res = Self::res_val_const_with_sub(input[226], input[26], den_invs[9], alpha_pows[53], res);
+
+        {
+            let val = input[185].mul_mod(
+                input[169].add_mod(
+                    PRIME.wrapping_sub(input[173].add_mod(input[173], PRIME)),
+                    PRIME,
+                ),
+                PRIME,
+            );
+
+            res = Self::res_val_constraint(res, val, den_invs[10], alpha_pows[54]);
         }
         {
             let val = input[185]
@@ -828,41 +736,33 @@ impl ConstraintPoly {
                 )
                 .mul_mod(den_invs[10], PRIME);
             // res += val * alpha ** 55.
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[55], PRIME), PRIME);
         }
 
-        {
-            let val = input[185]
-                .add_mod(
-                    PRIME.wrapping_sub(input[192].mul_mod(
-                        input[186].add_mod(
-                            PRIME.wrapping_sub(input[187].add_mod(input[187], PRIME)),
-                            PRIME,
-                        ),
-                        PRIME,
-                    )),
+        res = Self::res_val_const_with_sub(
+            input[185],
+            input[192].mul_mod(
+                input[186].add_mod(
+                    PRIME.wrapping_sub(input[187].add_mod(input[187], PRIME)),
                     PRIME,
-                )
-                .mul_mod(den_invs[10], PRIME);
-
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
+                ),
+                PRIME,
+            ),
+            den_invs[10],
+            alpha_pows[56],
+            res,
+        );
 
         {
-            let val = input[192]
-                .mul_mod(
-                    input[187].add_mod(
-                        PRIME.wrapping_sub(U256::from(8).mul_mod(input[188], PRIME)),
-                        PRIME,
-                    ),
+            let val = input[192].mul_mod(
+                input[187].add_mod(
+                    PRIME.wrapping_sub(U256::from(8).mul_mod(input[188], PRIME)),
                     PRIME,
-                )
-                .mul_mod(den_invs[10], PRIME);
+                ),
+                PRIME,
+            );
 
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[10], alpha_pows[57]);
         }
         {
             let diff_1004_1008 = input[190].add_mod(
@@ -874,17 +774,13 @@ impl ConstraintPoly {
                 PRIME,
             );
 
-            res = res.add_mod(
-                input[192]
-                    .add_mod(
-                        PRIME.wrapping_sub(diff_1004_1008.mul_mod(diff_784_788, PRIME)),
-                        PRIME,
-                    )
-                    .mul_mod(den_invs[10], PRIME)
-                    .mul_mod(composition_alpha_pow, PRIME),
-                PRIME,
+            res = Self::res_val_const_with_sub(
+                input[192],
+                diff_1004_1008.mul_mod(diff_784_788, PRIME),
+                den_invs[10],
+                alpha_pows[58],
+                res,
             );
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
         }
         {
             let val = input[190]
@@ -900,11 +796,9 @@ impl ConstraintPoly {
                         PRIME,
                     ),
                     PRIME,
-                )
-                .mul_mod(den_invs[10], PRIME);
+                );
             // res += val * alpha ** 60.
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[10], alpha_pows[59]);
         }
 
         // res += val * alpha ** 60.
@@ -916,22 +810,17 @@ impl ConstraintPoly {
                 )
                 .mul_mod(domains[16], PRIME)
                 .mul_mod(den_invs[7], PRIME)
-                .mul_mod(composition_alpha_pow, PRIME),
+                .mul_mod(alpha_pows[60], PRIME),
             PRIME,
         );
-        composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        {
-            // res += val * alpha ** 61.
-            let val = input[169].mul_mod(den_invs[12], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
-        {
-            // res += val * alpha ** 62.
-            let val = input[169].mul_mod(den_invs[11], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
+
+        res = Self::res_val_constraint(
+            Self::res_val_constraint(res, input[169], den_invs[12], alpha_pows[61]),
+            input[169],
+            den_invs[11],
+            alpha_pows[62],
+        );
+
         {
             // res += val * alpha ** 63.
             let val = composition_poly[22]
@@ -946,10 +835,9 @@ impl ConstraintPoly {
                     )),
                     PRIME,
                 )
-                .mul_mod(domains[16], PRIME)
-                .mul_mod(den_invs[7], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+                .mul_mod(domains[16], PRIME);
+            // res = res.add_mod(val.mul_mod(alpha_pows[63], PRIME)    , PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[7], alpha_pows[63]);
         }
         {
             // res += val * alpha ** 64.
@@ -962,10 +850,8 @@ impl ConstraintPoly {
             );
             let val = lhs
                 .add_mod(PRIME.wrapping_sub(rhs), PRIME)
-                .mul_mod(domains[16], PRIME)
-                .mul_mod(den_invs[7], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+                .mul_mod(domains[16], PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[7], alpha_pows[64]);
         }
         {
             // res += val * alpha ** 65.
@@ -976,10 +862,8 @@ impl ConstraintPoly {
             );
             let val = lhs
                 .add_mod(PRIME.wrapping_sub(rhs), PRIME)
-                .mul_mod(domains[16], PRIME)
-                .mul_mod(den_invs[7], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+                .mul_mod(domains[16], PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[7], alpha_pows[65]);
         }
         {
             // res += val * alpha ** 66.
@@ -988,10 +872,8 @@ impl ConstraintPoly {
                     input[152].add_mod(PRIME.wrapping_sub(input[148]), PRIME),
                     PRIME,
                 )
-                .mul_mod(domains[16], PRIME)
-                .mul_mod(den_invs[7], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+                .mul_mod(domains[16], PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[7], alpha_pows[66]);
         }
         {
             // res += val * alpha ** 67.
@@ -1000,53 +882,43 @@ impl ConstraintPoly {
                     input[154].add_mod(PRIME.wrapping_sub(input[150]), PRIME),
                     PRIME,
                 )
-                .mul_mod(domains[16], PRIME)
-                .mul_mod(den_invs[7], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+                .mul_mod(domains[16], PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[7], alpha_pows[67]);
         }
         {
             // res += val * alpha ** 68.
             let val = input[166]
                 .add_mod(PRIME.wrapping_sub(input[164]), PRIME)
-                .mul_mod(domains[18], PRIME)
-                .mul_mod(den_invs[10], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+                .mul_mod(domains[18], PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[10], alpha_pows[68]);
         }
         {
             // res += val * alpha ** 69.
             let val = input[167]
                 .add_mod(PRIME.wrapping_sub(input[165]), PRIME)
-                .mul_mod(domains[18], PRIME)
-                .mul_mod(den_invs[10], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+                .mul_mod(domains[18], PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[10], alpha_pows[69]);
         }
-        {
-            // res += val * alpha ** 70.
-            let val = input[148]
-                .add_mod(PRIME.wrapping_sub(input[27]), PRIME)
-                .mul_mod(den_invs[13], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
-        {
-            // res += val * alpha ** 71.
-            let val = input[150]
-                .add_mod(PRIME.wrapping_sub(input[28]), PRIME)
-                .mul_mod(den_invs[13], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
-        {
-            // res += val * alpha ** 72.
-            let val = input[102]
-                .add_mod(PRIME.wrapping_sub(input[169]), PRIME)
-                .mul_mod(den_invs[13], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
+
+        res = Self::res_val_const_with_sub(
+            input[102],
+            input[169],
+            den_invs[13],
+            alpha_pows[72],
+            Self::res_val_const_with_sub(
+                input[150],
+                input[28],
+                den_invs[13],
+                alpha_pows[71],
+                Self::res_val_const_with_sub(
+                    input[148],
+                    input[27],
+                    den_invs[13],
+                    alpha_pows[70],
+                    res,
+                ),
+            ),
+        );
         {
             // res += val * alpha ** 73.
             let val = input[132]
@@ -1054,65 +926,57 @@ impl ConstraintPoly {
                     PRIME.wrapping_sub(input[128].add_mod(U256::ONE, PRIME)),
                     PRIME,
                 )
-                .mul_mod(domains[25], PRIME)
-                .mul_mod(den_invs[13], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+                .mul_mod(domains[25], PRIME);
+            // res = res.add_mod(val.mul_mod(alpha_pows[73], PRIME), PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[13], alpha_pows[73]);
         }
-        {
-            // res += val * alpha ** 74.
-            let val = input[101]
-                .add_mod(PRIME.wrapping_sub(input[29]), PRIME)
-                .mul_mod(den_invs[4], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
-        {
-            // res += val * alpha ** 75.
-            let val = input[131]
-                .add_mod(PRIME.wrapping_sub(input[193]), PRIME)
-                .mul_mod(den_invs[13], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
-        {
-            // res += val * alpha ** 76.
-            let val = input[130]
-                .add_mod(
-                    PRIME.wrapping_sub(input[101].add_mod(U256::ONE, PRIME)),
-                    PRIME,
-                )
-                .mul_mod(den_invs[13], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
-        {
-            // res += val * alpha ** 77.
-            let val = input[129]
-                .add_mod(PRIME.wrapping_sub(input[168]), PRIME)
-                .mul_mod(den_invs[13], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
-        {
-            // res += val * alpha ** 78.
-            let val = input[128]
-                .add_mod(
-                    PRIME.wrapping_sub(input[130].add_mod(U256::ONE, PRIME)),
-                    PRIME,
-                )
-                .mul_mod(den_invs[13], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
-        {
-            // res += val * alpha ** 79.
-            let val = composition_poly[31]
-                .add_mod(PRIME.wrapping_sub(input[118]), PRIME)
-                .mul_mod(den_invs[14], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
-        }
+
+        // res += val * alpha ** 75.
+        // let val = input[131]
+        //     .add_mod(PRIME.wrapping_sub(input[193]), PRIME);
+        // .mul_mod(den_invs[13], PRIME);
+        // res = res.add_mod(val.mul_mod(alpha_pows[75], PRIME), PRIME);
+        res = Self::res_val_const_with_sub(
+            input[131],
+            input[193],
+            den_invs[13],
+            alpha_pows[75],
+            Self::res_val_const_with_sub(input[101], input[29], den_invs[4], alpha_pows[74], res),
+        );
+
+        // res += val * alpha ** 77.
+        // let val = input[129]
+        //     .add_mod(PRIME.wrapping_sub(input[168]), PRIME)
+        //     .mul_mod(den_invs[13], PRIME);
+        // res = res.add_mod(val.mul_mod(alpha_pows[77], PRIME), PRIME);
+        res = Self::res_val_const_with_sub(
+            input[129],
+            input[168],
+            den_invs[13],
+            alpha_pows[77],
+            Self::res_val_const_with_sub(
+                input[130],
+                input[101].add_mod(U256::ONE, PRIME),
+                den_invs[13],
+                alpha_pows[76],
+                res,
+            ),
+        );
+
+        res = Self::res_val_const_with_sub(
+            composition_poly[31],
+            input[118],
+            den_invs[14],
+            alpha_pows[79],
+            Self::res_val_const_with_sub(
+                input[128],
+                input[130].add_mod(U256::ONE, PRIME),
+                den_invs[13],
+                alpha_pows[78],
+                res,
+            ),
+        );
+
         {
             // res += val * alpha ** 80.
             let val = input[127]
@@ -1122,24 +986,21 @@ impl ConstraintPoly {
                 )
                 .mul_mod(domains[26], PRIME)
                 .mul_mod(den_invs[14], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[80], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 81.
             let val = input[117]
                 .add_mod(PRIME.wrapping_sub(input[30]), PRIME)
                 .mul_mod(den_invs[4], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[81], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 82.
             let val = input[108]
                 .add_mod(PRIME.wrapping_sub(input[31]), PRIME)
                 .mul_mod(den_invs[4], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[82], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 83.
@@ -1150,8 +1011,7 @@ impl ConstraintPoly {
                 )
                 .mul_mod(domains[9], PRIME)
                 .mul_mod(den_invs[15], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[83], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 84.
@@ -1161,8 +1021,7 @@ impl ConstraintPoly {
                     PRIME,
                 )
                 .mul_mod(den_invs[14], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[84], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 85.
@@ -1173,8 +1032,7 @@ impl ConstraintPoly {
                 )
                 .mul_mod(domains[26], PRIME)
                 .mul_mod(den_invs[14], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[85], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 86.
@@ -1182,8 +1040,7 @@ impl ConstraintPoly {
                 .add_mod(composition_poly[33], PRIME)
                 .add_mod(PRIME.wrapping_sub(input[109]), PRIME)
                 .mul_mod(den_invs[15], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[86], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 87.
@@ -1193,8 +1050,7 @@ impl ConstraintPoly {
                     PRIME,
                 )
                 .mul_mod(den_invs[14], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[87], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 88.
@@ -1207,8 +1063,7 @@ impl ConstraintPoly {
                     PRIME,
                 )
                 .mul_mod(den_invs[16], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[88], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 89.
@@ -1217,8 +1072,7 @@ impl ConstraintPoly {
                 .mul_mod(U256::from(16), PRIME))
             .add_mod(PRIME.wrapping_sub(input[59]), PRIME)
             .mul_mod(den_invs[14], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[89], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 90.
@@ -1226,8 +1080,7 @@ impl ConstraintPoly {
                 .mul_mod(U256::from(16), PRIME)
                 .add_mod(PRIME.wrapping_sub(input[78]), PRIME)
                 .mul_mod(den_invs[14], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[90], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 91.
@@ -1235,8 +1088,7 @@ impl ConstraintPoly {
                 .mul_mod(U256::from(16), PRIME)
                 .add_mod(PRIME.wrapping_sub(input[76]), PRIME)
                 .mul_mod(den_invs[14], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[91], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 92.
@@ -1244,16 +1096,14 @@ impl ConstraintPoly {
                 .mul_mod(U256::from(256), PRIME)
                 .add_mod(PRIME.wrapping_sub(input[84]), PRIME)
                 .mul_mod(den_invs[14], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[92], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 93.
             let val = input[97]
                 .add_mod(PRIME.wrapping_sub(input[32]), PRIME)
                 .mul_mod(den_invs[4], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[93], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 94.
@@ -1264,8 +1114,7 @@ impl ConstraintPoly {
                 )
                 .mul_mod(domains[27], PRIME)
                 .mul_mod(den_invs[17], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[94], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 95.
@@ -1275,8 +1124,7 @@ impl ConstraintPoly {
                     PRIME,
                 )
                 .mul_mod(den_invs[4], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[95], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 96.
@@ -1287,8 +1135,7 @@ impl ConstraintPoly {
                 )
                 .mul_mod(domains[27], PRIME)
                 .mul_mod(den_invs[17], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[96], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 97.
@@ -1298,8 +1145,7 @@ impl ConstraintPoly {
                     PRIME,
                 )
                 .mul_mod(den_invs[4], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[97], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 98.
@@ -1310,8 +1156,7 @@ impl ConstraintPoly {
                 )
                 .mul_mod(domains[27], PRIME)
                 .mul_mod(den_invs[17], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[98], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 99.
@@ -1319,8 +1164,7 @@ impl ConstraintPoly {
                 .mul_mod(input[199], PRIME)
                 .add_mod(PRIME.wrapping_sub(input[201]), PRIME)
                 .mul_mod(den_invs[2], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[99], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 100.
@@ -1328,8 +1172,7 @@ impl ConstraintPoly {
                 .mul_mod(input[205], PRIME)
                 .add_mod(PRIME.wrapping_sub(input[198]), PRIME)
                 .mul_mod(den_invs[2], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[100], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 101.
@@ -1337,8 +1180,7 @@ impl ConstraintPoly {
                 .mul_mod(input[195], PRIME)
                 .add_mod(PRIME.wrapping_sub(input[204]), PRIME)
                 .mul_mod(den_invs[2], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[101], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 102.
@@ -1346,8 +1188,7 @@ impl ConstraintPoly {
                 .mul_mod(input[137], PRIME)
                 .add_mod(PRIME.wrapping_sub(input[138]), PRIME)
                 .mul_mod(den_invs[5], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[102], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 103.
@@ -1356,8 +1197,7 @@ impl ConstraintPoly {
                 .add_mod(PRIME.wrapping_sub(input[172]), PRIME)
                 .mul_mod(domains[12], PRIME)
                 .mul_mod(den_invs[7], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[103], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 104.
@@ -1368,8 +1208,7 @@ impl ConstraintPoly {
                 )
                 .add_mod(PRIME.wrapping_sub(input[199]), PRIME)
                 .mul_mod(den_invs[14], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[104], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 105.
@@ -1380,8 +1219,7 @@ impl ConstraintPoly {
                 )
                 .add_mod(PRIME.wrapping_sub(input[205]), PRIME)
                 .mul_mod(den_invs[14], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[105], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 106.
@@ -1392,8 +1230,7 @@ impl ConstraintPoly {
                 )
                 .add_mod(PRIME.wrapping_sub(input[195]), PRIME)
                 .mul_mod(den_invs[14], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[106], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 107.
@@ -1411,8 +1248,7 @@ impl ConstraintPoly {
                 )
                 .mul_mod(domains[7], PRIME)
                 .mul_mod(den_invs[2], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[107], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 108.
@@ -1428,8 +1264,7 @@ impl ConstraintPoly {
                 )
                 .mul_mod(domains[7], PRIME)
                 .mul_mod(den_invs[2], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[108], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 109.
@@ -1446,8 +1281,7 @@ impl ConstraintPoly {
                 )
                 .mul_mod(domains[7], PRIME)
                 .mul_mod(den_invs[2], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[109], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 110.
@@ -1463,8 +1297,7 @@ impl ConstraintPoly {
                     PRIME,
                 )
                 .mul_mod(den_invs[14], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[110], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 111.
@@ -1475,8 +1308,7 @@ impl ConstraintPoly {
                     PRIME,
                 )
                 .mul_mod(den_invs[14], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[111], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 112.
@@ -1488,32 +1320,28 @@ impl ConstraintPoly {
                     PRIME,
                 )
                 .mul_mod(den_invs[14], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[112], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 113.
             let val = input[144]
                 .add_mod(PRIME.wrapping_sub(input[170]), PRIME)
                 .mul_mod(den_invs[14], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[113], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 114.
             let val = input[145]
                 .add_mod(PRIME.wrapping_sub(input[174]), PRIME)
                 .mul_mod(den_invs[14], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[114], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 115.
             let val = input[146]
                 .add_mod(PRIME.wrapping_sub(input[176]), PRIME)
                 .mul_mod(den_invs[14], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[115], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 116.
@@ -1531,8 +1359,7 @@ impl ConstraintPoly {
                     PRIME,
                 )
                 .mul_mod(den_invs[14], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[116], PRIME), PRIME);
         }
 
         {
@@ -1564,8 +1391,7 @@ impl ConstraintPoly {
                 )
                 .mul_mod(den_invs[14], PRIME);
 
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[117], PRIME), PRIME);
         }
         {
             // res += val * alpha ** 118.
@@ -1590,8 +1416,7 @@ impl ConstraintPoly {
             )
             .mul_mod(den_invs[14], PRIME);
 
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[118], PRIME), PRIME);
         }
 
         {
@@ -1615,8 +1440,7 @@ impl ConstraintPoly {
             .mul_mod(domains[13], PRIME)
             .mul_mod(den_invs[5], PRIME);
 
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[119], PRIME), PRIME);
         }
         {
             // poseidon/poseidon/partial_round1 (α^120)
@@ -1638,8 +1462,7 @@ impl ConstraintPoly {
             )
             .mul_mod(domains[14], PRIME)
             .mul_mod(den_invs[7], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[120], PRIME), PRIME);
 
             // poseidon/poseidon/margin_partial_to_full0 (α^121)
             let val = input[218].add_mod(
@@ -1657,8 +1480,7 @@ impl ConstraintPoly {
                 PRIME,
             )
             .mul_mod(den_invs[14], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[121], PRIME), PRIME);
 
             // poseidon/poseidon/margin_partial_to_full1 (α^122)
             let val = input[219].add_mod(
@@ -1675,8 +1497,7 @@ impl ConstraintPoly {
                 PRIME,
             )
             .mul_mod(den_invs[14], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[122], PRIME), PRIME);
 
             // poseidon/poseidon/margin_partial_to_full2 (α^123)
             let val = input[217].add_mod(
@@ -1700,24 +1521,35 @@ impl ConstraintPoly {
                 PRIME,
             )
             .mul_mod(den_invs[14], PRIME);
-            res = res.add_mod(val.mul_mod(composition_alpha_pow, PRIME), PRIME);
-            composition_alpha_pow = composition_alpha_pow.mul_mod(composition_alpha, PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[123], PRIME), PRIME);
         }
-        Ok(res)
+        Ok(res.to_be_bytes::<32>().to_vec())
     }
 }
 
 #[cfg(test)]
 mod test {
+    use stylus_sdk::testing::*;
     #[test]
     fn test_compute_result() {
-        let result =
-            ConstraintPoly::compute_result(&INPUT, &COMPOSITION_POLY, &DOMAINS, &DEN_INV).unwrap();
-        assert_eq!(result, RESULT);
+        let mut calldata: Vec<u8> = Vec::new();
+        let vm = TestVM::default();
+        let mut contract = ConstraintPolyFinalizer::from(&vm);
+        for x in INPUT
+            .iter()
+            .chain(COMPOSITION_POLY.iter())
+            .chain(DOMAINS.iter())
+        {
+            calldata.extend_from_slice(&x.to_be_bytes::<32>());
+        }
+        for byte in &calldata {
+            print!("{:02x}", byte);
+        }
+        println!();
+        let result = contract.compute(&calldata).unwrap();
+        let result_word: U256 = U256::from_be_slice(&result);
+        assert_eq!(result_word, RESULT);
     }
-
-    use stylus_sdk::testing::*;
-
     use super::*;
     use stylus_sdk::alloy_primitives::{uint, U256};
 
@@ -2115,6 +1947,7 @@ mod test {
         0x062b67bdc72e40797acd4d574bcc745e02a5052c2434b4507d5cc947dcfae72a_U256, //284
         0x04b890835f6e76126680bd97b8c8d6305750aa8076a955238388c0c88badc3f1_U256, // 0x23a0 (285)
     ]);
+
     // 011c9786266bae42dde1f8aa500daa5d15789f42f645109651766156e8846ce0
     const RESULT: U256 =
         uint!(0x06830dfba344bbbb4521412ab453a5883b76d7649286a365017d2eb2984ad636_U256);
