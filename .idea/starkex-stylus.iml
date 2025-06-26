@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="EMPTY_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/stylus/constraint-poly-finalizer/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/stylus/constraint-poly-preparer/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/stylus/constraint-poly/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/stylus/cpu-verifier/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/stylus/cpu/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/stylus/gps-sv/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/stylus/gps-sv/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/stylus/layout-specific/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/stylus/macros/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/stylus/mpfr/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/stylus/offsets/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/stylus/pedersen-hp-x-c/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/stylus/pedersen-hp-y-c/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/stylus/poseidon-frk-0-col/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/stylus/poseidon-frk-1-col/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/stylus/poseidon-frk-2-col/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/stylus/poseidon-prk-0-col/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/stylus/poseidon-prk-1-col/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/stylus/prime-field-element0/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/stylus/stark-verifier/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/stylus/verifier-channel/src" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/stylus/constraint-poly-finalizer/target" />
+      <excludeFolder url="file://$MODULE_DIR$/stylus/constraint-poly-preparer/target" />
+      <excludeFolder url="file://$MODULE_DIR$/stylus/constraint-poly/target" />
+      <excludeFolder url="file://$MODULE_DIR$/stylus/cpu-verifier/target" />
+      <excludeFolder url="file://$MODULE_DIR$/stylus/cpu/target" />
+      <excludeFolder url="file://$MODULE_DIR$/stylus/gps-sv/target" />
+      <excludeFolder url="file://$MODULE_DIR$/stylus/layout-specific/target" />
+      <excludeFolder url="file://$MODULE_DIR$/stylus/macros/target" />
+      <excludeFolder url="file://$MODULE_DIR$/stylus/mpfr/target" />
+      <excludeFolder url="file://$MODULE_DIR$/stylus/offsets/target" />
+      <excludeFolder url="file://$MODULE_DIR$/stylus/pedersen-hp-x-c/target" />
+      <excludeFolder url="file://$MODULE_DIR$/stylus/pedersen-hp-y-c/target" />
+      <excludeFolder url="file://$MODULE_DIR$/stylus/poseidon-frk-0-col/target" />
+      <excludeFolder url="file://$MODULE_DIR$/stylus/poseidon-frk-1-col/target" />
+      <excludeFolder url="file://$MODULE_DIR$/stylus/poseidon-frk-2-col/target" />
+      <excludeFolder url="file://$MODULE_DIR$/stylus/poseidon-prk-0-col/target" />
+      <excludeFolder url="file://$MODULE_DIR$/stylus/poseidon-prk-1-col/target" />
+      <excludeFolder url="file://$MODULE_DIR$/stylus/prime-field-element0/target" />
+      <excludeFolder url="file://$MODULE_DIR$/stylus/stark-verifier/target" />
+      <excludeFolder url="file://$MODULE_DIR$/stylus/verifier-channel/target" />
+    </content>
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>

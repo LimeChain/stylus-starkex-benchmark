@@ -1,12 +1,12 @@
 [package]
-name = "prime_field_element0"
+name = "cpu-verifier"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/OffchainLabs/stylus-hello-world"
 repository = "https://github.com/OffchainLabs/stylus-hello-world"
 keywords = ["arbitrum", "ethereum", "stylus", "alloy"]
-description = "Stylus prime field element 0 implementation"
+description = "Stylus cpu verifier implementation"
 
 [dependencies]
 alloy-primitives = { version = "=0.8.20" }
@@ -19,11 +19,7 @@ stylus-sdk = { version = "0.8.4", default-features = false, features = [
     "mini-alloc",
 ] }
 macros = { path = "../macros" }
-
-# Motsu (持つ)  test config
-# stylus-sdk = { version = "0.8.4", default-features = false, features = [
-#     "mini-alloc",
-# ] }
+offsets = { path = "../offsets" }
 
 [dev-dependencies]
 tokio = { version = "1.12.0", features = ["full"] }
@@ -32,11 +28,13 @@ eyre = "0.6.8"
 motsu = "0.8.0"
 
 [features]
+default = ["mini-alloc"]
 export-abi = ["stylus-sdk/export-abi"]
 debug = ["stylus-sdk/debug"]
+mini-alloc = ["stylus-sdk/mini-alloc"]
 
 [[bin]]
-name = "prime_field_element0"
+name = "cpu-verifier"
 path = "src/main.rs"
 
 [lib]
@@ -47,6 +45,7 @@ codegen-units = 1
 strip = true
 lto = true
 panic = "abort"
-opt-level = "s"
+
 # If you need to reduce the binary size, it is advisable to try other
 # optimization levels, such as "s" and "z"
+opt-level = 3

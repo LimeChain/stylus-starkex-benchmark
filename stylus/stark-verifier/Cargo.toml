@@ -1,12 +1,12 @@
 [package]
-name = "prime_field_element0"
+name = "stark-verifier"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/OffchainLabs/stylus-hello-world"
 repository = "https://github.com/OffchainLabs/stylus-hello-world"
 keywords = ["arbitrum", "ethereum", "stylus", "alloy"]
-description = "Stylus prime field element 0 implementation"
+description = "Stylus stark verifier implementation"
 
 [dependencies]
 alloy-primitives = { version = "=0.8.20" }
@@ -19,6 +19,7 @@ stylus-sdk = { version = "0.8.4", default-features = false, features = [
     "mini-alloc",
 ] }
 macros = { path = "../macros" }
+prime_field_element0 = { path = "../prime-field-element0" }
 
 # Motsu (持つ)  test config
 # stylus-sdk = { version = "0.8.4", default-features = false, features = [
@@ -36,7 +37,7 @@ export-abi = ["stylus-sdk/export-abi"]
 debug = ["stylus-sdk/debug"]
 
 [[bin]]
-name = "prime_field_element0"
+name = "stark-verifier"
 path = "src/main.rs"
 
 [lib]

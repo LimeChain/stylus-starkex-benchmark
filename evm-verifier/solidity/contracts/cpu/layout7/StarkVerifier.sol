@@ -138,7 +138,7 @@ abstract contract StarkVerifier is
         uint256 nFriSteps = proofParams[PROOF_PARAMS_N_FRI_STEPS_OFFSET];
         require(nFriSteps <= MAX_FRI_STEPS, "Too many fri steps.");
         require(nFriSteps > 1, "Not enough fri steps.");
-
+        
         uint256[] memory friStepSizes = new uint256[](nFriSteps);
         for (uint256 i = 0; i < nFriSteps; i++) {
             friStepSizes[i] = proofParams[PROOF_PARAMS_FRI_STEPS_OFFSET + i];
@@ -465,7 +465,7 @@ abstract contract StarkVerifier is
         uint256 friLastLayerDegBound = ctx[MM_FRI_LAST_LAYER_DEG_BOUND];
         uint256 lastLayerPtr;
         uint256 badInput = 0;
-
+        uint256 val;
         assembly {
             let primeMinusOne := 0x800000000000011000000000000000000000000000000000000000000000000
             let channelPtr := add(add(ctx, 0x20), mul(lmmChannel, 0x20))
@@ -474,11 +474,13 @@ abstract contract StarkVerifier is
             // Make sure all the values are valid field elements.
             let length := mul(friLastLayerDegBound, 0x20)
             let lastLayerEnd := add(lastLayerPtr, length)
+            val := lastLayerEnd
             for {
                 let coefsPtr := lastLayerPtr
             } lt(coefsPtr, lastLayerEnd) {
                 coefsPtr := add(coefsPtr, 0x20)
             } {
+                // coef := mload(coefsPtr)
                 badInput := or(badInput, gt(mload(coefsPtr), primeMinusOne))
             }
 
@@ -491,6 +493,7 @@ abstract contract StarkVerifier is
             mstore(newDigestPtr, add(mload(digestPtr), 1))
 
             // prng.digest := keccak256((digest+1)||lastLayerCoefs).
+            val := mload(add(newDigestPtr, add(length, 0x20)))
             mstore(digestPtr, keccak256(newDigestPtr, add(length, 0x20)))
             // prng.counter := 0.
             mstore(add(channelPtr, 0x40), 0)
@@ -498,7 +501,7 @@ abstract contract StarkVerifier is
             // Note: proof pointer is not incremented until this point.
             mstore(channelPtr, lastLayerEnd)
         }
-
+        console.log("lastLayerPtr", lastLayerPtr);
         require(badInput == 0, "Invalid field element.");
         ctx[MM_FRI_LAST_LAYER_PTR] = lastLayerPtr;
     }
@@ -508,6 +511,7 @@ abstract contract StarkVerifier is
         uint256[] memory proof,
         uint256[] memory publicInput
     ) internal view override {
+        console.log("verifyProof");
         uint256[] memory ctx = initVerifierParams(publicInput, proofParams);
         uint256 channelPtr = getChannelPtr(ctx);
 

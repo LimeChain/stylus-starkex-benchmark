@@ -745,7 +745,7 @@ mod test {
 
     use stylus_sdk::testing::*;
 
-    #[test]
+    #[motsu::test]
     fn test_compute() {
         let calldata: Vec<u8> = INPUT
             .iter()
@@ -762,7 +762,7 @@ mod test {
         assert_eq!(result, output_data, "result is wrong");
     }
 
-    #[test]
+    #[motsu::test]
     fn test_composition_polynomial() {
         let result = ConstraintPolyPreparer::composition_polynomial(&INPUT).unwrap();
         for (i, cp) in COMPOSITION_POLY.iter().enumerate() {
@@ -771,7 +771,7 @@ mod test {
         assert_eq!(result, COMPOSITION_POLY);
     }
 
-    #[test]
+    #[motsu::test]
     fn test_expmods_and_domains() {
         let trace_length =
             uint!(0x0000000000000000000000000000000000000000000000000000000004000000_U256);

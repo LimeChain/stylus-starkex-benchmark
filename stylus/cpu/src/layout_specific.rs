@@ -1,4 +1,3 @@
-// Lyubo: We should use that as a contract that is inherited by the cpuverifier
 pub mod layout_specific {
     use crate::require;
     use crate::stark_verifier::VerifierError;
@@ -94,3 +93,14 @@ pub mod layout_specific {
         res
     }
 }
+
+
+
+// pub const OUTPUT_BUILTIN_BIT: usize = 0;
+// pub const PEDERSEN_BUILTIN_BIT: usize = 1;
+// pub const RANGE_CHECK_BUILTIN_BIT: usize = 2;
+// pub const ECDSA_BUILTIN_BIT: usize = 3;
+// pub const BITWISE_BUILTIN_BIT: usize = 4;
+// pub const EC_OP_BUILTIN_BIT: usize = 5;
+// pub const KECCAK_BUILTIN_BIT: usize = 6;
+// pub const POSEIDON_BUILTIN_BIT: usize = 7;
