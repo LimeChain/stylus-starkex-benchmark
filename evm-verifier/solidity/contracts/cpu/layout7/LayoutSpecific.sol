@@ -129,7 +129,7 @@ abstract contract LayoutSpecific is MemoryMap, StarkParameters, CpuPublicInputOf
             nSteps,
             PEDERSEN_BUILTIN_RATIO * PEDERSEN_BUILTIN_REPETITIONS);
         uint256 zPointPowPedersen = fpow(oodsPoint, nPedersenHashCopies);
-        console.log("zPointPowPedersen", zPointPowPedersen);
+        
         ctx[MM_PERIODIC_COLUMN__PEDERSEN__POINTS__X] = pedersenPointsX.compute(zPointPowPedersen);
         ctx[MM_PERIODIC_COLUMN__PEDERSEN__POINTS__Y] = pedersenPointsY.compute(zPointPowPedersen);
 
@@ -140,7 +140,7 @@ abstract contract LayoutSpecific is MemoryMap, StarkParameters, CpuPublicInputOf
             5];
 
         ctx[MM_DILUTED_CHECK__FINAL_CUM_VAL] = computeDilutedCumulativeValue(ctx);
-        console.log("dilutedCumulativeValue", ctx[MM_DILUTED_CHECK__FINAL_CUM_VAL]);
+        
 
         // The number of copies in the Poseidon hash periodic columns is
         // nSteps / POSEIDON__RATIO.
@@ -148,7 +148,7 @@ abstract contract LayoutSpecific is MemoryMap, StarkParameters, CpuPublicInputOf
             2 ** ctx[MM_LOG_N_STEPS],
             POSEIDON__RATIO);
         uint256 zPointPowPoseidon = fpow(oodsPoint, nPoseidonHashCopies);
-        console.log("zPointPowPoseidon", zPointPowPoseidon);
+        
         ctx[MM_PERIODIC_COLUMN__POSEIDON__POSEIDON__FULL_ROUND_KEY0] = poseidonPoseidonFullRoundKey0.compute(zPointPowPoseidon);
         ctx[MM_PERIODIC_COLUMN__POSEIDON__POSEIDON__FULL_ROUND_KEY1] = poseidonPoseidonFullRoundKey1.compute(zPointPowPoseidon);
         ctx[MM_PERIODIC_COLUMN__POSEIDON__POSEIDON__FULL_ROUND_KEY2] = poseidonPoseidonFullRoundKey2.compute(zPointPowPoseidon);

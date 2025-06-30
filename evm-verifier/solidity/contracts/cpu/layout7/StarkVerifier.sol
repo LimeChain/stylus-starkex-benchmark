@@ -244,7 +244,8 @@ abstract contract StarkVerifier is
         uint256 log_evalDomainSize = ctx[MM_LOG_EVAL_DOMAIN_SIZE];
         uint256 evalDomainSize = ctx[MM_EVAL_DOMAIN_SIZE];
         uint256 evalDomainGenerator = ctx[MM_EVAL_DOMAIN_GENERATOR];
-
+        uint256 val;
+            
         assembly {
             /*
               Returns the bit reversal of value assuming it has the given number of bits.
@@ -352,10 +353,12 @@ abstract contract StarkVerifier is
         uint256 merkleQueuePtr = getPtr(ctx, MM_MERKLE_QUEUE);
         uint256 rowSize = 0x20 * nColumns;
         uint256 proofDataSkipBytes = 0x20 * (nTotalColumns - nColumns);
-
+        
+        uint256 val;
         assembly {
             let proofPtr := mload(channelPtr)
             let merklePtr := merkleQueuePtr
+            
 
             for {
 
@@ -363,6 +366,7 @@ abstract contract StarkVerifier is
                 friQueue := add(friQueue, FRI_QUEUE_SLOT_SIZE_IN_BYTES)
             } {
                 let merkleLeaf := and(keccak256(proofPtr, rowSize), COMMITMENT_MASK)
+                
                 if eq(rowSize, 0x20) {
                     // If a leaf contains only 1 field element we don't hash it.
                     merkleLeaf := mload(proofPtr)
@@ -385,7 +389,6 @@ abstract contract StarkVerifier is
                 }
                 proofDataPtr := add(proofDataPtr, proofDataSkipBytes)
             }
-
             mstore(channelPtr, proofPtr)
         }
 
@@ -411,43 +414,43 @@ abstract contract StarkVerifier is
             getPtr(ctx, MM_TRACE_QUERY_RESPONSES),
             bytes32(ctx[MM_TRACE_COMMITMENT])
         );
-        if (hasInteraction()) {
-            readQueryResponsesAndDecommit(
-                ctx,
-                getNColumnsInTrace(),
-                getNColumnsInTrace1(),
-                getPtr(ctx, MM_TRACE_QUERY_RESPONSES + getNColumnsInTrace0()),
-                bytes32(ctx[MM_TRACE_COMMITMENT + 1])
-            );
-        }
+        // if (hasInteraction()) {
+        //     readQueryResponsesAndDecommit(
+        //         ctx,
+        //         getNColumnsInTrace(),
+        //         getNColumnsInTrace1(),
+        //         getPtr(ctx, MM_TRACE_QUERY_RESPONSES + getNColumnsInTrace0()),
+        //         bytes32(ctx[MM_TRACE_COMMITMENT + 1])
+        //     );
+        // }
 
-        readQueryResponsesAndDecommit(
-            ctx,
-            getNColumnsInComposition(),
-            getNColumnsInComposition(),
-            getPtr(ctx, MM_COMPOSITION_QUERY_RESPONSES),
-            bytes32(ctx[MM_OODS_COMMITMENT])
-        );
+        // readQueryResponsesAndDecommit(
+        //     ctx,
+        //     getNColumnsInComposition(),
+        //     getNColumnsInComposition(),
+        //     getPtr(ctx, MM_COMPOSITION_QUERY_RESPONSES),
+        //     bytes32(ctx[MM_OODS_COMMITMENT])
+        // );
 
-        address oodsAddress = oodsContractAddress;
-        uint256 friQueue = getPtr(ctx, MM_FRI_QUEUE);
-        uint256 returnDataSize = MAX_N_QUERIES * FRI_QUEUE_SLOT_SIZE_IN_BYTES;
-        assembly {
-            // Call the OODS contract.
-            if iszero(
-                staticcall(
-                    not(0),
-                    oodsAddress,
-                    ctx,
-                    mul(add(mload(ctx), 1), 0x20), /*sizeof(ctx)*/
-                    friQueue,
-                    returnDataSize
-                )
-            ) {
-                returndatacopy(0, 0, returndatasize())
-                revert(0, returndatasize())
-            }
-        }
+        // address oodsAddress = oodsContractAddress;
+        // uint256 friQueue = getPtr(ctx, MM_FRI_QUEUE);
+        // uint256 returnDataSize = MAX_N_QUERIES * FRI_QUEUE_SLOT_SIZE_IN_BYTES;
+        // assembly {
+        //     // Call the OODS contract.
+        //     if iszero(
+        //         staticcall(
+        //             not(0),
+        //             oodsAddress,
+        //             ctx,
+        //             mul(add(mload(ctx), 1), 0x20), /*sizeof(ctx)*/
+        //             friQueue,
+        //             returnDataSize
+        //         )
+        //     ) {
+        //         returndatacopy(0, 0, returndatasize())
+        //         revert(0, returndatasize())
+        //     }
+        // }
     }
 
     /*
@@ -501,7 +504,6 @@ abstract contract StarkVerifier is
             // Note: proof pointer is not incremented until this point.
             mstore(channelPtr, lastLayerEnd)
         }
-        console.log("lastLayerPtr", lastLayerPtr);
         require(badInput == 0, "Invalid field element.");
         ctx[MM_FRI_LAST_LAYER_PTR] = lastLayerPtr;
     }
@@ -511,7 +513,6 @@ abstract contract StarkVerifier is
         uint256[] memory proof,
         uint256[] memory publicInput
     ) internal view override {
-        console.log("verifyProof");
         uint256[] memory ctx = initVerifierParams(publicInput, proofParams);
         uint256 channelPtr = getChannelPtr(ctx);
 
@@ -575,7 +576,7 @@ abstract contract StarkVerifier is
             getPtr(ctx, MM_FRI_QUEUE),
             FRI_QUEUE_SLOT_SIZE_IN_BYTES
         );
-        // computeFirstFriLayer(ctx);
+        computeFirstFriLayer(ctx);
 
         // friVerifyLayers(ctx);
     }

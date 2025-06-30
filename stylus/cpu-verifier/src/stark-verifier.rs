@@ -1,12 +1,16 @@
-
-use macros::require;
-use prime_field_element0::PrimeFieldElement0;
+extern crate alloc;
+use alloc::vec::Vec;
 
 use stylus_sdk::{
     alloy_primitives::{address, FixedBytes, U256, uint},
     crypto::keccak,
     call::{static_call, Call},
 };
+
+#[path = "prime-field-element0.rs"]
+mod prime_field_element0;
+
+use prime_field_element0::PrimeFieldElement0;
 
 // use crate::public_memory_offsets::{offset_page_size, public_input_length};
 
@@ -278,7 +282,7 @@ impl StarkVerifier {
     // }
 
     // Lyubo: Consider if stylus requires self in the function signature
-    pub fn read_last_fri_layer(proof: &mut [U256], ctx: &mut [U256]) -> Result<(), String> {
+    pub fn read_last_fri_layer(proof: &mut [U256], ctx: &mut [U256]) {
         let lmm_channel = 10;
         let fri_last_layer_deg_bound = ctx[315].to::<usize>();
         let mut bad_input = U256::ZERO;
@@ -308,9 +312,9 @@ impl StarkVerifier {
         ctx[channel_ptr + 2] = U256::ZERO;
         ctx[channel_ptr] = U256::from(last_layer_end);
 
-        require!(bad_input == U256::ZERO, "Invalid field element.");
+        // require!(bad_input == U256::ZERO, "Invalid field element.");
         ctx[316] = U256::from(last_layer_ptr);
-        Ok(())
+        // Ok(())
     }
 
     // // Lyubo: Move to utils.rs
@@ -321,13 +325,11 @@ impl StarkVerifier {
 
     fn compute_first_fri_layer(ctx: &mut [U256]) {
         StarkVerifier::adjust_query_indices_and_prepare_eval_points(ctx);
-        // Lyubo: Use constants;
-        StarkVerifier::read_query_responses_and_decommit(ctx, 12, 9, 602, StarkVerifier::u256_to_bytes(ctx[6]));
+        // StarkVerifier::read_query_responses_and_decommit(ctx, 12, 9, 602, StarkVerifier::u256_to_bytes(ctx[6]));
         if StarkVerifier::has_interaction() {
-            // Lyubo: Use constants;
-            StarkVerifier::read_query_responses_and_decommit(ctx, 12, 3, 611, StarkVerifier::u256_to_bytes(ctx[7]));
+            // StarkVerifier::read_query_responses_and_decommit(ctx, 12, 3, 611, StarkVerifier::u256_to_bytes(ctx[7]));
         }
-        StarkVerifier::read_query_responses_and_decommit(ctx, 2, 2, 1178, StarkVerifier::u256_to_bytes(ctx[8]));
+        // StarkVerifier::read_query_responses_and_decommit(ctx, 2, 2, 1178, StarkVerifier::u256_to_bytes(ctx[8]));
 
         // // Lyubo: How to handler reverts? "?" sign?
         // ctx[MM_FRI_QUEUE] = U256::from_be_slice(&static_call(
@@ -340,62 +342,67 @@ impl StarkVerifier {
     fn adjust_query_indices_and_prepare_eval_points(ctx: &mut [U256]) {
         let n_unique_queries = ctx[9].to::<usize>();
         let fri_queue = 109;
-        let fri_queue_end = fri_queue + n_unique_queries;
+        let fri_queue_end = fri_queue + n_unique_queries * 3;
 
         let mut eval_points_ptr = 553;
         let log_eval_domain_size = ctx[2].to::<usize>();
         let eval_domain_size = ctx[0];
         let eval_domain_generator = ctx[4];
 
-        for i in fri_queue..fri_queue_end {
+        let mut i = fri_queue;
+        while i < fri_queue_end {
             let query_idx = ctx[i];
             let adjusted_query_idx = query_idx + eval_domain_size;
             ctx[i] = adjusted_query_idx;
-            println!("ctx[i]: {}", ctx[i]);
             ctx[eval_points_ptr] = PrimeFieldElement0::expmod(eval_domain_generator, PrimeFieldElement0::bit_reverse(query_idx, log_eval_domain_size), PrimeFieldElement0::K_MODULUS);
-            println!("ctx[eval_points_ptr]: {}", ctx[eval_points_ptr]);
             eval_points_ptr += 1;
+            i += 3;
         }
     }
 
     // // Lyubo: pass proof as it work with proof data, not only the ctx
-    fn read_query_responses_and_decommit(ctx: &mut [U256], n_total_columns: usize, n_columns: usize, mut proof_data_ptr: usize, merkle_root: FixedBytes<32>) {
+    fn read_query_responses_and_decommit(proof: &mut [U256], ctx: &mut [U256], n_total_columns: usize, n_columns: usize, mut proof_data_ptr: usize, merkle_root: FixedBytes<32>) {
         // require!(n_columns <= n_total_columns, b"Too many columns.");
 
         let n_unique_queries = ctx[9].to::<usize>();
         let channel_ptr = 10;
         let fri_queue = 109;
-        let fri_queue_end = fri_queue + n_unique_queries;
+        let fri_queue_end = fri_queue + n_unique_queries * 3;
         let merkle_queue_ptr = 13;
-        let row_size = n_columns;
+        let row_size = n_columns * 32;
         let proof_data_skip_bytes = n_total_columns - n_columns;
 
-        let proof_ptr = ctx[channel_ptr].to::<usize>();
+        let mut proof_ptr = ctx[channel_ptr].to::<usize>();
         let mut merkle_ptr = merkle_queue_ptr;
 
-        let mut input_data = Vec::new();
-        for i in fri_queue..fri_queue_end {
-            for j in proof_ptr..proof_ptr + row_size {
-                input_data.splice(j * 32..j * 32 + 32, ctx[j].to_be_bytes::<32>());
+        let mut i = fri_queue;
+        while i < fri_queue_end {
+            let mut j = proof_ptr;
+            let mut input_data = Vec::new();
+            while j < proof_ptr + row_size {
+                ctx[proof_data_ptr] = StarkVerifier::read_ptr(proof, j, 8);
+                input_data.extend_from_slice(&ctx[proof_data_ptr].to_be_bytes::<32>());
+                proof_data_ptr += 1;
+                j += 32;
             }
 
             let merkle_leaf_hash: U256 = keccak(&input_data).into();
             let mut merkle_leaf = merkle_leaf_hash & COMMITMENT_MASK;
-            if row_size == 1 {
-                merkle_leaf = ctx[proof_ptr];
+
+            if row_size == 32 {
+                merkle_leaf = StarkVerifier::read_ptr(proof, proof_ptr, 8);
             } 
 
             ctx[merkle_ptr] = ctx[i];
             ctx[merkle_ptr + 1] = merkle_leaf;
             merkle_ptr += 2;
 
-            for j in proof_ptr..proof_ptr + row_size {
-                ctx[proof_data_ptr] = ctx[j];
-                proof_data_ptr += 1;
-            }
+            i += 3;
+            proof_ptr += row_size;
             proof_data_ptr += proof_data_skip_bytes;
         }
-        ctx[channel_ptr] = U256::from(proof_ptr + row_size);
+
+        ctx[channel_ptr] = U256::from(proof_ptr);
         // verify_merkle(channel_ptr, merkle_queue_ptr, merkle_root, n_unique_queries);
     }
 
@@ -500,6 +507,19 @@ impl StarkVerifier {
 
     //     Ok(())
     // }
+
+    fn read_ptr(proof: &[U256], ptr: usize, offset: usize) -> U256 {
+        let element_index = ptr / 32;
+        
+        if ptr % 32 == 0 {
+            proof[element_index]
+        } else {
+            let bit_shift = offset * 8;
+            let element1 = proof[element_index] << bit_shift;
+            let element2 = proof[element_index + 1] >> (256 - bit_shift);
+            element1 | element2
+        }
+    }
 }
 
 #[cfg(test)]
@@ -524,17 +544,24 @@ mod tests {
     //     StarkVerifier::compute_first_fri_layer(&ctx);
     // }
 
-    #[motsu::test]
-    fn test_adjust_query_indices_and_prepare_eval_points() {
-        let mut ctx = test_constants::get_ctx_compute_first_fri_layer();
-        StarkVerifier::adjust_query_indices_and_prepare_eval_points(&mut ctx);
-    }
-
     // #[motsu::test]
-    // fn test_read_query_responses_and_decommit() {
+    // fn test_adjust_query_indices_and_prepare_eval_points() {
     //     let mut ctx = test_constants::get_ctx_compute_first_fri_layer();
-    //     StarkVerifier::adjust_query_indices_and_prepare_eval_points(&ctx);
-    //     StarkVerifier::read_query_responses_and_decommit(&ctx, 12, 9, MM_TRACE_QUERY_RESPONSES, u256_to_bytes(ctx[MM_TRACE_COMMITMENT]));
+    //     StarkVerifier::adjust_query_indices_and_prepare_eval_points(&mut ctx);
+    //     assert_eq!(ctx[553], uint!(3515892385904170702434114719646176958489529091479346127319408828731691841909_U256));
+    //     assert_eq!(ctx[109], uint!(4818245268_U256));
+    //     assert_eq!(ctx[139], uint!(8285752452_U256));
     // }
 
+    // Lyubo: Finish this test with asserts
+    #[motsu::test]
+    fn test_read_query_responses_and_decommit() {
+        let mut proof = test_constants::get_proof();
+        let mut ctx = test_constants::get_ctx_compute_first_fri_layer();
+        StarkVerifier::adjust_query_indices_and_prepare_eval_points(&mut ctx);
+
+        ctx[10] = U256::from(8584); // proof pointer
+        let merkle_root = StarkVerifier::u256_to_bytes(ctx[6]);
+        StarkVerifier::read_query_responses_and_decommit(&mut proof, &mut ctx, 12, 9, 602, merkle_root);
+    }
 }

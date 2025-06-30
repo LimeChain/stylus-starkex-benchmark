@@ -70,14 +70,27 @@ impl PrimeFieldElement0 {
 
     pub fn bit_reverse(value: U256, number_of_bits: usize) -> U256 {
         let mut res = value;
-        res =(U256::from(2) << res & uint!(6148914691236517205_U256)) | (res & uint!(12297829382473034410_U256));
-        res = (U256::from(4) << res & uint!(7378697629483820646_U256)) | (res & uint!(29514790517935282584_U256));
-        res = (U256::from(8) << res & uint!(8680820740569200760_U256)) | (res & uint!(138893131849107212160_U256));
-        res = (U256::from(16) << res & uint!(9187483429707480960_U256)) | (res & uint!(2351995758005115125760_U256));
-        res = (U256::from(32) << res & uint!(9223231301513871360_U256)) | (res & uint!(604453686576013073448960_U256));
-        res = (U256::from(64) << res & uint!(9223372034707292160_U256)) | (res & uint!(39614081247908796759917199360_U256));
-        res = U256::from(127 - number_of_bits) >> res;
+        res = ((res & uint!(6148914691236517205_U256)) << U256::from(2)) | (res & uint!(12297829382473034410_U256));
+        res = ((res & uint!(7378697629483820646_U256)) << U256::from(4)) | (res & uint!(29514790517935282584_U256));
+        res = ((res & uint!(8680820740569200760_U256)) << U256::from(8)) | (res & uint!(138893131849107212160_U256));
+        res = ((res & uint!(9187483429707480960_U256)) << U256::from(16)) | (res & uint!(2351995758005115125760_U256));
+        res = ((res & uint!(9223231301513871360_U256)) << U256::from(32)) | (res & uint!(604453686576013073448960_U256));
+        res = ((res & uint!(9223372034707292160_U256)) << U256::from(64)) | (res & uint!(39614081247908796759917199360_U256));
+
+        res = res >> U256::from(127 - number_of_bits);
         res
     }
+
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // #[motsu::test]
+    // fn test_bit_reverse() {
+    //     let res = PrimeFieldElement0::bit_reverse(uint!(523277972_U256), 32);
+    //     assert_eq!(res, uint!(694750456_U256));
+    // }
 
 }

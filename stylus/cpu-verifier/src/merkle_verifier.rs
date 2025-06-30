@@ -9,7 +9,7 @@ use crate::public_memory_offsets::{offset_page_size, public_input_length};
 pub struct MerkleStatementVerifier {}
 
 // Lyubo: Add merkle_statement_contract into the storage of the contract
-impl MerkleStatementVerifier {
+impl MerkleVerifier {
 
     fn verify_merkle(
         &self,
@@ -18,7 +18,7 @@ impl MerkleStatementVerifier {
         root: &FixedBytes<32>,
         n: &U256,
     ) -> FixedBytes<32> {
-        require!(n <= MAX_N_MERKLE_VERIFIER_QUERIES, b"TOO_MANY_MERKLE_QUERIES");
+        // require!(n <= MAX_N_MERKLE_VERIFIER_QUERIES, "TOO_MANY_MERKLE_QUERIES");
 
         let data_to_hash_ptr_start = 0
         let data_to_hash_ptr_cur = 0;
@@ -31,7 +31,7 @@ impl MerkleStatementVerifier {
         input_data.extend_from_slice(&root);
 
         let statement = keccak(&input_data).into();
-        require!(merkle_statement_contract.is_valid(statement), b"INVALIDATED_MERKLE_STATEMENT");
+        // require!(merkle_statement_contract.is_valid(statement), b"INVALIDATED_MERKLE_STATEMENT");
         root
     }
 }

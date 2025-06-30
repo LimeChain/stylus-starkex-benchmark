@@ -125,7 +125,7 @@ impl VerifierChannel {
         
         ctx[channel_ptr + 1] = final_hash;
         ctx[channel_ptr + 2] = U256::ZERO;
-        ctx[channel_ptr] = proof_ptr + U256::from(1);        
+        ctx[channel_ptr] = proof_ptr * U256::from(32) + U256::from(8); // 8 is the offset of the nonce
 
         let proof_of_work_threshold = U256::from(1) << U256::from(256 - proof_of_work_bits.to::<usize>());
         require!(proof_of_work_digest < proof_of_work_threshold, "Proof of work check failed.");

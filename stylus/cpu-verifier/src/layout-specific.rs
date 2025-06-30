@@ -106,5 +106,22 @@ impl LayoutSpecific {
         let res = p.add_mod(q.mul_mod(alpha, PrimeFieldElement0::K_MODULUS), PrimeFieldElement0::K_MODULUS);
         res
     }
-    
+
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    mod test_constants;
+    use stylus_sdk::{
+        alloy_primitives::{U256, uint},
+    };
+
+    // #[motsu::test]
+    // fn test_compute_diluted_cumulative_value() {
+    //     let mut ctx = test_constants::get_ctx_compute_diluted_cumulative_value();
+    //     let diluted_cumulative_value = LayoutSpecific::compute_diluted_cumulative_value(&ctx);
+    //     assert_eq!(diluted_cumulative_value, uint!(1552215061468209516830163195514878071221879601444981698864155012436627340325_U256));
+    // }
+
 }
