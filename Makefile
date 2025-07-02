@@ -158,3 +158,18 @@ constraint_poly_fin-test:
 		echo "Test failed: expected $$EXPECTED, got $$ACTUAL"; \
 		exit 1; \
 	fi
+
+# 0xd9bF5428C4a93aA2DEdd0161F299071b9D1FEc0a
+# oods_contract=0x5FbDB2315678afecb367f032d93F642f64180aa3
+oods_contract=0x4A3635EEd2C38cB0Eac2D52ddE9CFaB49Be48C17
+# OOds call
+# estimate:
+# Solidity: 823170
+.PHONY: oods_call_mn
+oods_call_mn:
+	@cast estimate -vvv $(oods_contract) $$(cat stylus/testdata/oods_input.hex ) --rpc-url https://ethereum-rpc.publicnode.com
+
+oods_contract_nitro=0x4a2ba922052ba54e29c5417bc979daaf7d5fe4f4
+.PHONY: oods_call_nitro
+oods_call_nitro:
+	@cast estimate -vvv $(oods_contract_nitro) $$(cat stylus/testdata/oods_input.hex ) --rpc-url nitro
