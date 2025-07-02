@@ -3,8 +3,6 @@ pragma solidity ^0.6.12;
 
 import "./MerkleStatementContract.sol";
 
-import {console} from "forge-std/console.sol";
-
 abstract contract MerkleStatementVerifier is IMerkleVerifier {
     MerkleStatementContract merkleStatementContract;
 
@@ -22,7 +20,6 @@ abstract contract MerkleStatementVerifier is IMerkleVerifier {
         uint256 n
     ) internal view virtual override returns (bytes32) {
         bytes32 statement;
-        console.log("here")
         require(n <= MAX_N_MERKLE_VERIFIER_QUERIES, "TOO_MANY_MERKLE_QUERIES");
 
         assembly {
@@ -47,7 +44,6 @@ abstract contract MerkleStatementVerifier is IMerkleVerifier {
 
             statement := keccak256(dataToHashPtrStart, sub(dataToHashPtrCur, dataToHashPtrStart))
         }
-        console.logBytes32(statement);
         // require(merkleStatementContract.isValid(statement), "INVALIDATED_MERKLE_STATEMENT");
         return root;
     }

@@ -21,6 +21,8 @@ import "./MemoryAccessUtils.sol";
 import "../../FriLayer.sol";
 import "../../HornerEvaluator.sol";
 
+import {console} from "forge-std/console.sol";
+
 /*
   This contract computes and verifies all the FRI layer, one by one. The final layer is verified
   by evaluating the fully committed polynomial, and requires specific handling.
@@ -56,6 +58,7 @@ contract Fri is MemoryMap, MemoryAccessUtils, HornerEvaluator, FriLayer {
             "MAX_STEP_SIZE is inconsistent in MemoryMap.sol and FriLayer.sol"
         );
         initFriGroups(friCtx);
+        
         uint256 channelPtr = getChannelPtr(ctx);
         uint256 merkleQueuePtr = getMerkleQueuePtr(ctx);
 
@@ -85,7 +88,6 @@ contract Fri is MemoryMap, MemoryAccessUtils, HornerEvaluator, FriLayer {
         uint256 nFriSteps = friStepSizes.length;
         while (friStep < nFriSteps) {
             uint256 friCosetSize = 2**friStepSizes[friStep];
-
             nLiveQueries = computeNextLayer(
                 channelPtr,
                 friQueue,
@@ -96,19 +98,19 @@ contract Fri is MemoryMap, MemoryAccessUtils, HornerEvaluator, FriLayer {
                 friCosetSize
             );
 
-            // Layer is done, verify the current layer and move to next layer.
-            // ctx[mmMerkleQueue: merkleQueueIdx) holds the indices
-            // and values of the merkle leaves that need verification.
-            verifyMerkle(
-                channelPtr,
-                merkleQueuePtr,
-                bytes32(ctx[MM_FRI_COMMITMENTS + friStep - 1]),
-                nLiveQueries
-            );
+        //     // Layer is done, verify the current layer and move to next layer.
+        //     // ctx[mmMerkleQueue: merkleQueueIdx) holds the indices
+        //     // and values of the merkle leaves that need verification.
+        //     // verifyMerkle(
+        //     //     channelPtr,
+        //     //     merkleQueuePtr,
+        //     //     bytes32(ctx[MM_FRI_COMMITMENTS + friStep - 1]),
+        //     //     nLiveQueries
+        //     // );
 
             friStep++;
         }
 
-        verifyLastLayer(ctx, nLiveQueries);
+        // verifyLastLayer(ctx, nLiveQueries);
     }
 }

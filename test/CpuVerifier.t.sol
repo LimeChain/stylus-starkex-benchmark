@@ -3,6 +3,7 @@ pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
 import "forge-std/Test.sol";
+import "../evm-verifier/solidity/contracts/cpu/layout7/CpuOods.sol";
 import "../evm-verifier/solidity/contracts/cpu/periodic_columns/PedersenHashPointsXColumn.sol";
 import "../evm-verifier/solidity/contracts/cpu/periodic_columns/PedersenHashPointsYColumn.sol";
 import "../evm-verifier/solidity/contracts/cpu/periodic_columns/PoseidonPoseidonFullRoundKey0Column.sol";
@@ -11,7 +12,7 @@ import "../evm-verifier/solidity/contracts/cpu/periodic_columns/PoseidonPoseidon
 import "../evm-verifier/solidity/contracts/cpu/periodic_columns/PoseidonPoseidonPartialRoundKey0Column.sol";
 import "../evm-verifier/solidity/contracts/cpu/periodic_columns/PoseidonPoseidonPartialRoundKey1Column.sol";
 
-import "../evm-verifier/solidity/contracts/cpu/layout7/CpuVerifier.sol";
+import "../evm-verifier/solidity/contracts/cpu/layout7/CpuFrilessVerifier.sol";
 import "../evm-verifier/solidity/contracts/cpu/layout7/CpuConstraintPoly.sol";
 
 
@@ -1173,7 +1174,8 @@ contract CpuVerifierTest is Test {
         auxPolynomials[5] = address(new PoseidonPoseidonFullRoundKey2Column());
         auxPolynomials[6] = address(new PoseidonPoseidonPartialRoundKey0Column());
         auxPolynomials[7] = address(new PoseidonPoseidonPartialRoundKey1Column());
-        CpuVerifier verifier = new CpuVerifier(auxPolynomials);
+        address oodsContract = address(new CpuOods());
+        CpuVerifier verifier = new CpuFrilessVerifier(auxPolynomials, oodsContract);
         verifier.verifyProofExternal(getProofParams(), getProof(), getPublicInput());
     }
 }

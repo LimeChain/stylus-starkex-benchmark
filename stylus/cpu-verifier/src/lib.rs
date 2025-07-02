@@ -10,6 +10,10 @@ mod prime_field_element0;
 mod layout_specific;
 #[path = "stark-verifier.rs"]
 mod stark_verifier;
+#[path = "fri-statement-verifier.rs"]
+mod fri_statement_verifier;
+#[path = "verifier-channel.rs"]
+mod verifier_channel;
 
 #[macro_use]
 extern crate alloc;

@@ -23,23 +23,12 @@ import "../../MerkleStatementVerifier.sol";
 contract CpuFrilessVerifier is CpuVerifier, MerkleStatementVerifier, FriStatementVerifier {
     constructor(
         address[] memory auxPolynomials,
-        address oodsContract,
-        address memoryPageFactRegistry_,
-        address merkleStatementContractAddress,
-        address friStatementContractAddress,
-        uint256 numSecurityBits_,
-        uint256 minProofOfWorkBits_
+        address oodsContract
     )
         public
-        MerkleStatementVerifier(merkleStatementContractAddress)
-        FriStatementVerifier(friStatementContractAddress)
-        CpuVerifier(
-            auxPolynomials,
-            oodsContract,
-            memoryPageFactRegistry_,
-            numSecurityBits_,
-            minProofOfWorkBits_
-        )
+        MerkleStatementVerifier(address(0))
+        FriStatementVerifier(address(0))
+        CpuVerifier(auxPolynomials, oodsContract)
     {}
 
     function verifyMerkle(

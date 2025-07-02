@@ -17,6 +17,7 @@
 pragma solidity ^0.6.12;
 
 import "./MemoryMap.sol";
+import {console} from "forge-std/console.sol";
 
 contract MemoryAccessUtils is MemoryMap {
     function getPtr(uint256[] memory ctx, uint256 offset) internal pure returns (uint256) {
@@ -63,9 +64,11 @@ contract MemoryAccessUtils is MemoryMap {
         pure
         returns (uint256[] memory friStepSizes)
     {
+        uint256 val;
         uint256 friStepSizesPtr = getPtr(ctx, MM_FRI_STEP_SIZES_PTR);
         assembly {
             friStepSizes := mload(friStepSizesPtr)
+            val := mload(friStepSizesPtr)
         }
     }
 }

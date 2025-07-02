@@ -10,8 +10,9 @@ pub struct PrimeFieldElement0 {}
 impl PrimeFieldElement0 {
     pub const BOUND: U256 = uint!(0xf80000000000020f00000000000000000000000000000000000000000000001f_U256);
     pub const K_MODULUS: U256 = uint!(0x800000000000011000000000000000000000000000000000000000000000001_U256);
+    pub const K_MONTGOMERY_R: U256 = uint!(0x7fffffffffffdf0ffffffffffffffffffffffffffffffffffffffffffffffe1_U256);
     pub const K_MONTGOMERY_R_INV: U256 = uint!(0x40000000000001100000000000012100000000000000000000000000000000_U256);
-
+    
     pub fn from_montgomery(val: U256) -> U256 {
         val.mul_mod(Self::K_MONTGOMERY_R_INV, Self::K_MODULUS)
     }

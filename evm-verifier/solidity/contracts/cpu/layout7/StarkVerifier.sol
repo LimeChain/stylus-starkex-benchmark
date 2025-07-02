@@ -244,7 +244,6 @@ abstract contract StarkVerifier is
         uint256 log_evalDomainSize = ctx[MM_LOG_EVAL_DOMAIN_SIZE];
         uint256 evalDomainSize = ctx[MM_EVAL_DOMAIN_SIZE];
         uint256 evalDomainGenerator = ctx[MM_EVAL_DOMAIN_GENERATOR];
-        uint256 val;
             
         assembly {
             /*
@@ -407,6 +406,7 @@ abstract contract StarkVerifier is
     */
     function computeFirstFriLayer(uint256[] memory ctx) internal view {
         adjustQueryIndicesAndPrepareEvalPoints(ctx);
+        
         readQueryResponsesAndDecommit(
             ctx,
             getNColumnsInTrace(),
@@ -414,43 +414,42 @@ abstract contract StarkVerifier is
             getPtr(ctx, MM_TRACE_QUERY_RESPONSES),
             bytes32(ctx[MM_TRACE_COMMITMENT])
         );
-        // if (hasInteraction()) {
-        //     readQueryResponsesAndDecommit(
-        //         ctx,
-        //         getNColumnsInTrace(),
-        //         getNColumnsInTrace1(),
-        //         getPtr(ctx, MM_TRACE_QUERY_RESPONSES + getNColumnsInTrace0()),
-        //         bytes32(ctx[MM_TRACE_COMMITMENT + 1])
-        //     );
-        // }
+        if (hasInteraction()) {
+            readQueryResponsesAndDecommit(
+                ctx,
+                getNColumnsInTrace(),
+                getNColumnsInTrace1(),
+                getPtr(ctx, MM_TRACE_QUERY_RESPONSES + getNColumnsInTrace0()),
+                bytes32(ctx[MM_TRACE_COMMITMENT + 1])
+            );
+        }
+        readQueryResponsesAndDecommit(
+            ctx,
+            getNColumnsInComposition(),
+            getNColumnsInComposition(),
+            getPtr(ctx, MM_COMPOSITION_QUERY_RESPONSES),
+            bytes32(ctx[MM_OODS_COMMITMENT])
+        );
 
-        // readQueryResponsesAndDecommit(
-        //     ctx,
-        //     getNColumnsInComposition(),
-        //     getNColumnsInComposition(),
-        //     getPtr(ctx, MM_COMPOSITION_QUERY_RESPONSES),
-        //     bytes32(ctx[MM_OODS_COMMITMENT])
-        // );
-
-        // address oodsAddress = oodsContractAddress;
-        // uint256 friQueue = getPtr(ctx, MM_FRI_QUEUE);
-        // uint256 returnDataSize = MAX_N_QUERIES * FRI_QUEUE_SLOT_SIZE_IN_BYTES;
-        // assembly {
-        //     // Call the OODS contract.
-        //     if iszero(
-        //         staticcall(
-        //             not(0),
-        //             oodsAddress,
-        //             ctx,
-        //             mul(add(mload(ctx), 1), 0x20), /*sizeof(ctx)*/
-        //             friQueue,
-        //             returnDataSize
-        //         )
-        //     ) {
-        //         returndatacopy(0, 0, returndatasize())
-        //         revert(0, returndatasize())
-        //     }
-        // }
+        address oodsAddress = oodsContractAddress;
+        uint256 friQueue = getPtr(ctx, MM_FRI_QUEUE);
+        uint256 returnDataSize = MAX_N_QUERIES * FRI_QUEUE_SLOT_SIZE_IN_BYTES;
+        assembly {
+            // Call the OODS contract.
+            if iszero(
+                staticcall(
+                    not(0),
+                    oodsAddress,
+                    ctx,
+                    mul(add(mload(ctx), 1), 0x20), /*sizeof(ctx)*/
+                    friQueue,
+                    returnDataSize
+                )
+            ) {
+                returndatacopy(0, 0, returndatasize())
+                revert(0, returndatasize())
+            }
+        }
     }
 
     /*
@@ -472,18 +471,18 @@ abstract contract StarkVerifier is
         assembly {
             let primeMinusOne := 0x800000000000011000000000000000000000000000000000000000000000000
             let channelPtr := add(add(ctx, 0x20), mul(lmmChannel, 0x20))
+            val := channelPtr
             lastLayerPtr := mload(channelPtr)
 
             // Make sure all the values are valid field elements.
             let length := mul(friLastLayerDegBound, 0x20)
             let lastLayerEnd := add(lastLayerPtr, length)
-            val := lastLayerEnd
+            
             for {
                 let coefsPtr := lastLayerPtr
             } lt(coefsPtr, lastLayerEnd) {
                 coefsPtr := add(coefsPtr, 0x20)
             } {
-                // coef := mload(coefsPtr)
                 badInput := or(badInput, gt(mload(coefsPtr), primeMinusOne))
             }
 
@@ -496,7 +495,6 @@ abstract contract StarkVerifier is
             mstore(newDigestPtr, add(mload(digestPtr), 1))
 
             // prng.digest := keccak256((digest+1)||lastLayerCoefs).
-            val := mload(add(newDigestPtr, add(length, 0x20)))
             mstore(digestPtr, keccak256(newDigestPtr, add(length, 0x20)))
             // prng.counter := 0.
             mstore(add(channelPtr, 0x40), 0)
@@ -506,6 +504,8 @@ abstract contract StarkVerifier is
         }
         require(badInput == 0, "Invalid field element.");
         ctx[MM_FRI_LAST_LAYER_PTR] = lastLayerPtr;
+        console.log(val);
+        console.log("lastLayerPtr", lastLayerPtr);
     }
 
     function verifyProof(
@@ -514,6 +514,7 @@ abstract contract StarkVerifier is
         uint256[] memory publicInput
     ) internal view override {
         uint256[] memory ctx = initVerifierParams(publicInput, proofParams);
+        console.log("ctx", ctx[10]);
         uint256 channelPtr = getChannelPtr(ctx);
 
         initChannel(channelPtr, getProofPtr(proof), getPublicInputHash(publicInput));
@@ -576,8 +577,9 @@ abstract contract StarkVerifier is
             getPtr(ctx, MM_FRI_QUEUE),
             FRI_QUEUE_SLOT_SIZE_IN_BYTES
         );
+        
         computeFirstFriLayer(ctx);
 
-        // friVerifyLayers(ctx);
+        friVerifyLayers(ctx);
     }
 }

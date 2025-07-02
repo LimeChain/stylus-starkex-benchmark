@@ -56,8 +56,9 @@ contract CpuVerifier is
     // IFactRegistry memoryPageFactRegistry;
 
     constructor(
-            address[] memory auxPolynomials
-    ) public StarkVerifier(type(uint256).max, 0, 0x0000000000000000000000000000000000000000) {
+            address[] memory auxPolynomials,
+            address oodsContract
+    ) public StarkVerifier(type(uint256).max, 0, oodsContract) {
         constraintPoly = CpuConstraintPoly(auxPolynomials[0]);
         initPeriodicColumns(auxPolynomials);
     }
@@ -268,7 +269,6 @@ contract CpuVerifier is
         uint256 numerator = fpow(z, publicMemorySize);
         // console.log("denominator", denominator);
         // console.log("numerator", numerator);
-        console.log("result", fmul(numerator, inverse(denominator)));
         // Compute the final result: numerator * denominator^(-1).
         return fmul(numerator, inverse(denominator));
     }
@@ -306,7 +306,7 @@ contract CpuVerifier is
     function verifyMemoryPageFacts(uint256[] memory ctx) private view {
         uint256 nPublicMemoryPages = ctx[MM_N_PUBLIC_MEM_PAGES];
 
-        for (uint256 page = 0; page < 2; page++) {
+        for (uint256 page = 0; page < nPublicMemoryPages; page++) {
             // Fetch page values from the public input (hash, product and size).
             uint256 memoryHashPtr = ctx[MM_PUBLIC_INPUT_PTR] + getOffsetPageHash(page) * 0x20;
             uint256 memoryHash;
@@ -375,28 +375,28 @@ contract CpuVerifier is
         }
         prepareForOodsCheck(ctx);
 
-        // uint256 compositionFromTraceValue;
-        // address lconstraintPoly = address(constraintPoly);
-        // uint256 offset = 0x20 * (1 + MM_CONSTRAINT_POLY_ARGS_START);
-        // uint256 size = 0x20 * (MM_CONSTRAINT_POLY_ARGS_END - MM_CONSTRAINT_POLY_ARGS_START);
-        // assembly {
-        //     // Call CpuConstraintPoly contract.
-        //     let p := mload(0x40)
-        //     if iszero(staticcall(not(0), lconstraintPoly, add(ctx, offset), size, p, 0x20)) {
-        //         returndatacopy(0, 0, returndatasize())
-        //         revert(0, returndatasize())
-        //     }
-        //     compositionFromTraceValue := mload(p)
-        // }
+        uint256 compositionFromTraceValue;
+        address lconstraintPoly = address(constraintPoly);
+        uint256 offset = 0x20 * (1 + MM_CONSTRAINT_POLY_ARGS_START);
+        uint256 size = 0x20 * (MM_CONSTRAINT_POLY_ARGS_END - MM_CONSTRAINT_POLY_ARGS_START);
+        assembly {
+            // Call CpuConstraintPoly contract.
+            let p := mload(0x40)
+            if iszero(staticcall(not(0), lconstraintPoly, add(ctx, offset), size, p, 0x20)) {
+                returndatacopy(0, 0, returndatasize())
+                revert(0, returndatasize())
+            }
+            compositionFromTraceValue := mload(p)
+        }
 
-        // uint256 claimedComposition = fadd(
-        //     ctx[MM_COMPOSITION_OODS_VALUES],
-        //     fmul(ctx[MM_OODS_POINT], ctx[MM_COMPOSITION_OODS_VALUES + 1])
-        // );
+        uint256 claimedComposition = fadd(
+            ctx[MM_COMPOSITION_OODS_VALUES],
+            fmul(ctx[MM_OODS_POINT], ctx[MM_COMPOSITION_OODS_VALUES + 1])
+        );
 
-        // require(
-        //     compositionFromTraceValue == claimedComposition,
-        //     "claimedComposition does not match trace"
-        // );
+        require(
+            compositionFromTraceValue == claimedComposition,
+            "claimedComposition does not match trace"
+        );
     }
 }
