@@ -15,212 +15,97 @@ use prime_field_element0::PrimeFieldElement0;
 mod merkle_statement_verifier;
 use merkle_statement_verifier::MerkleStatementVerifier;
 
-// use crate::public_memory_offsets::{offset_page_size, public_input_length};
+pub trait StarkVerifier {
+    const PRIME_MINUS_ONE: U256 = uint!(0x800000000000011000000000000000000000000000000000000000000000000_U256);
+    const COMMITMENT_MASK: U256 = uint!(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF000000000000000000000000_U256);
+    fn air_specific_init(public_input: &[U256]) -> (Vec<U256>, U256);
 
-// // TODO: switch to alloy::sol!
-// sol! {
-//     error InvalidProof(string reason);
-//     error ComputationFailed(string reason);
-// }
+    fn init_verifier_params(
+        public_input: &[U256],
+        proof_params: &[U256],
+    ) -> (Vec<U256>, Vec<U256>) {
+        // require!(
+        //     proof_params.len() >= PROOF_PARAMS_FRI_STEPS_OFFSET,
+        //     "Invalid proof params"
+        // );
+       
+        // require!(
+        //     proof_params.len() == (PROOF_PARAMS_FRI_STEPS_OFFSET + proof_params[PROOF_PARAMS_N_FRI_STEPS_OFFSET]),
+        //     "Invalid proofParams."
+        // );
+        let log_blowup_factor = proof_params[1];
+        // require!(log_blowup_factor <= 16, "logBlowupFactor must be at most 16");
+        // require!(log_blowup_factor >= 1, "logBlowupFactor must be at least 1");
+        
+        let proof_of_work_bits = proof_params[2];
+        // require!(proof_of_work_bits <= 50, "proofOfWorkBits must be at most 50");
+        // require!(proof_of_work_bits >= 1, "minimum proofOfWorkBits not satisfied");
+        // require!(proof_of_work_bits < num_security_bits, "Proofs may not be purely based on PoW.");
 
-// #[derive(SolidityError)]
-// pub enum VerifierError {
-//     InvalidProof(InvalidProof),
-//     ComputationFailed(ComputationFailed),
-// }
+        let log_fri_last_layer_deg_bound = proof_params[3];
+        // require!(log_fri_last_layer_deg_bound <= 10, "logFriLastLayerDegBound must be at most 10.");
 
-const PUBLIC_MP_LIMIT: U256 = uint!(1073741824_U256);
+        let n_fri_steps = proof_params[4].to::<usize>();
+        // require!(n_fri_steps <= MAX_FRI_STEPS, "Too many fri steps.");
+        // require!(n_fri_steps > 1, "Not enough fri steps.");
 
-// const PROOF_PARAMS_N_QUERIES_OFFSET: usize = 0;
-const PROOF_PARAMS_LOG_BLOWUP_FACTOR_OFFSET: usize = 1;
-const PROOF_PARAMS_PROOF_OF_WORK_BITS_OFFSET: usize = 2;
-const PROOF_PARAMS_FRI_LAST_LAYER_LOG_DEG_BOUND_OFFSET: usize = 3;
-const PROOF_PARAMS_N_FRI_STEPS_OFFSET: usize = 4;
-const PROOF_PARAMS_FRI_STEPS_OFFSET: usize = 5;
+        let mut fri_step_sizes: Vec<U256> = Vec::new();
+        for i in 0..n_fri_steps {
+            fri_step_sizes.push(proof_params[5 + i]);
+        }
 
-const INITIAL_PC: U256 = uint!(1_U256);
-// FINAL_PC = INITIAL_PC + 4;
-const FINAL_PC: U256 = uint!(5_U256);
+        let (mut ctx, log_trace_length) = Self::air_specific_init(public_input);
+        Self::validate_fri_params(&fri_step_sizes, log_trace_length, log_fri_last_layer_deg_bound);
 
-// Stark parameters
-// Air specific constants
-const LOG_CPU_COMPONENT_HEIGHT: usize = 4;
-const LAYOUT_CODE: U256 = uint!(42800643258479064999893963318903811951182475189843316_U256);
-const PRIME_MINUS_ONE: U256 = uint!(0x800000000000011000000000000000000000000000000000000000000000000_U256);
-const COMMITMENT_MASK: U256 = uint!(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF000000000000000000000000_U256);
+        ctx[315] = U256::from(1) << log_fri_last_layer_deg_bound;
+        ctx[324] = U256::from(1) << log_trace_length;
+        ctx[1] = U256::from(1) << log_blowup_factor;
+        ctx[3] = proof_of_work_bits;
 
-pub struct StarkVerifier {}
+        let n_queries = proof_params[0];
+        // require!(n_queries > 0, "Number of queries must be at least one");
+        // require!(n_queries <= MAX_N_QUERIES, "Too many queries.");
+        // require!(
+        //     n_queries * log_blowup_factor + proof_of_work_bits >= num_security_bits,
+        //     "Proof params do not satisfy security requirements."
+        // );
 
-impl StarkVerifier {
-    // Algebraic Intermediate Representation (AIR) specific initialization.
-    // fn air_specific_init(
-    //     &self,
-    //     public_input: &[U256],
-    // ) -> Result<(Vec<U256>, usize), VerifierError> {
-    //     require!(
-    //         public_input.len() >= OFFSET_PUBLIC_MEMORY,
-    //         "publicInput is too short."
-    //     );
-    //     let mut ctx: Vec<U256> = vec![U256::ZERO; MM_CONTEXT_SIZE];
+        ctx[9] = n_queries;
+        ctx[2] = log_trace_length + log_blowup_factor;
+        ctx[0] = U256::from(1) << ctx[2];
 
-    //     ctx[MM_OFFSET_SIZE] = U256::from(1u64 << 16);
-    //     ctx[MM_HALF_OFFSET_SIZE] = U256::from(1u64 << 15);
+        let gen_eval_domain = PrimeFieldElement0::fpow(U256::from(3), (PrimeFieldElement0::K_MODULUS - U256::from(1)) / ctx[0]);
+        ctx[4] = gen_eval_domain;
+        ctx[350] = PrimeFieldElement0::fpow(gen_eval_domain, ctx[1]);
 
-    //     // Number of steps.
-    //     let log_n_steps: usize = match public_input[OFFSET_LOG_N_STEPS].try_into() {
-    //         Ok(n) => n,
-    //         Err(_) => {
-    //             return Err(VerifierError::InvalidProof(InvalidProof {
-    //                 reason: "Number of steps is too large.".to_string(),
-    //             }));
-    //         }
-    //     };
-    //     require!(log_n_steps < 50, "Number of steps is too large.");
-    //     ctx[MM_LOG_N_STEPS] = U256::from(log_n_steps);
-    //     let log_trace_length = log_n_steps + LOG_CPU_COMPONENT_HEIGHT;
+        (ctx, fri_step_sizes)
+    }
 
-    //     // Range check limits.
-    //     ctx[MM_RANGE_CHECK_MIN] = public_input[OFFSET_RC_MIN];
-    //     ctx[MM_RANGE_CHECK_MAX] = public_input[OFFSET_RC_MAX];
-    //     require!(
-    //         ctx[MM_RANGE_CHECK_MIN] <= ctx[MM_RANGE_CHECK_MAX],
-    //         "rc_min must be <= rc_max"
-    //     );
-    //     require!(
-    //         ctx[MM_RANGE_CHECK_MAX] < ctx[MM_OFFSET_SIZE],
-    //         "rc_max out of range"
-    //     );
 
-    //     // Layout.
-    //     require!(
-    //         public_input[OFFSET_LAYOUT_CODE] == LAYOUT_CODE,
-    //         "Layout code mismatch."
-    //     );
+    fn validate_fri_params(
+        fri_step_sizes: &[U256],
+        log_trace_length: U256,
+        log_fri_last_layer_deg_bound: U256,
+    ) {
+        // require(fri_step_sizes[0] == U256::ZERO, "Only eta0 == 0 is currently supported");
 
-    //     // Initial and final pc ("program" memory segment).
-    //     ctx[MM_INITIAL_PC] = public_input[OFFSET_PROGRAM_BEGIN_ADDR];
-    //     ctx[MM_FINAL_PC] = public_input[OFFSET_PROGRAM_STOP_PTR];
-    //     // Invalid final pc may indicate that the program end was moved, or the program didn't
-    //     // complete.
-    //     require!(ctx[MM_INITIAL_PC] == INITIAL_PC, "Invalid initial pc");
-    //     require!(ctx[MM_FINAL_PC] == FINAL_PC, "Invalid final pc");
+        let mut expected_log_deg_bound = log_fri_last_layer_deg_bound;
+        let n_fri_steps = fri_step_sizes.len();
+        for i in 1..n_fri_steps {
+            let fri_step_size = fri_step_sizes[i];
+            // require(fri_step_size >= U256::from(2), "Min supported fri step size is 2.");
+            // require(fri_step_size <= U256::from(4), "Max supported fri step size is 4.");
+            expected_log_deg_bound += fri_step_size;
+        }
 
-    //     // Initial and final ap ("execution" memory segment).
-    //     ctx[MM_INITIAL_AP] = public_input[OFFSET_EXECUTION_BEGIN_ADDR];
-    //     ctx[MM_FINAL_AP] = public_input[OFFSET_EXECUTION_STOP_PTR];
-
-    //     // Public memory.
-    //     let public_memory_pages_number: usize =
-    //         match public_input[OFFSET_N_PUBLIC_MEMORY_PAGES].try_into() {
-    //             Ok(n) => n,
-    //             Err(_) => {
-    //                 return Err(VerifierError::InvalidProof(InvalidProof {
-    //                     reason: "Invalid number of memory pages.".to_string(),
-    //                 }));
-    //             }
-    //         };
-    //     require!(
-    //         public_memory_pages_number >= 1 && public_memory_pages_number < 100000,
-    //         "Invalid number of memory pages."
-    //     );
-    //     ctx[MM_N_PUBLIC_MEM_PAGES] = U256::from(public_memory_pages_number);
-
-    //     {
-    //         let mut n_public_memory_entries: U256 = U256::ZERO;
-    //         for page_index in 0..public_memory_pages_number {
-    //             let n_page_entries: U256 = public_input[offset_page_size(page_index)];
-    //             require!(
-    //                 n_page_entries < PUBLIC_MP_LIMIT,
-    //                 "Invalid number of memory entries."
-    //             );
-    //             n_public_memory_entries += n_page_entries;
-    //         }
-    //         ctx[MM_N_PUBLIC_MEM_ENTRIES] = n_public_memory_entries;
-    //     }
-
-    //     require!(
-    //         public_input_length(public_memory_pages_number) == public_input.len(),
-    //         "Public input length mismatch."
-    //     );
-
-    //     // TODO: implement
-    //     Ok((vec![], 0))
-    // }
-
-    // fn validate_fri_params(
-    //     &self,
-    //     fri_step_sizes: &[U256],
-    //     log_fri_last_layer_deg_bound: U256,
-    // ) -> Result<(), VerifierError> {
-    //     Ok(())
-    // }
-
-    // fn init_verifier_params(
-    //     &self,
-    //     public_input: &[U256],
-    //     proof_params: &[U256],
-    // ) -> Result<(), VerifierError> {
-    //     require!(
-    //         proof_params.len() >= PROOF_PARAMS_FRI_STEPS_OFFSET,
-    //         "Invalid proof params"
-    //     );
-    //     let n_fri_steps: usize = match proof_params[PROOF_PARAMS_N_FRI_STEPS_OFFSET].try_into() {
-    //         Ok(n) => n,
-    //         Err(_) => {
-    //             return Err(VerifierError::InvalidProof(InvalidProof {
-    //                 reason: "Invalid proof params".to_string(),
-    //             }));
-    //         }
-    //     };
-    //     require!(
-    //         proof_params.len() == PROOF_PARAMS_FRI_STEPS_OFFSET + n_fri_steps,
-    //         "Invalid proof params"
-    //     );
-    //     let log_blow_factor: U256 = proof_params[PROOF_PARAMS_LOG_BLOWUP_FACTOR_OFFSET];
-    //     require!(
-    //         log_blow_factor.as_limbs()[0] < 16,
-    //         "logBlowupFactor must be at most 16"
-    //     );
-    //     require!(
-    //         log_blow_factor.as_limbs()[0] > 1,
-    //         "logBlowupFactor must be at least 1"
-    //     );
-    //     let proof_of_work_bits: U256 = proof_params[PROOF_PARAMS_PROOF_OF_WORK_BITS_OFFSET];
-    //     require!(
-    //         proof_of_work_bits.as_limbs()[0] < 50,
-    //         "proofOfWorkBits must be at most 50"
-    //     );
-    //     require!(
-    //         proof_of_work_bits.as_limbs()[0] > 1,
-    //         "proofOfWorkBits must be at least 1"
-    //     );
-
-    //     let log_fri_last_layer_deg_bound: U256 =
-    //         proof_params[PROOF_PARAMS_FRI_LAST_LAYER_LOG_DEG_BOUND_OFFSET];
-    //     require!(
-    //         log_fri_last_layer_deg_bound.as_limbs()[0] < 10,
-    //         "logFriLastLayerDegBound must be at most 10"
-    //     );
-    //     let n_fri_steps: usize = proof_params[PROOF_PARAMS_N_FRI_STEPS_OFFSET]
-    //         .try_into()
-    //         .unwrap();
-    //     require!(n_fri_steps <= MAX_FRI_STEPS, "Too many fri steps");
-    //     require!(n_fri_steps > 1, "Not enough fri steps");
-    //     let fri_step_sizes: Vec<U256> = (0..n_fri_steps)
-    //         .map(|i| proof_params[PROOF_PARAMS_FRI_STEPS_OFFSET + i])
-    //         .collect();
-    //     let (ctx, log_trace_length) = self.air_specific_init(public_input)?;
-
-    //     self.validate_fri_params(&fri_step_sizes, log_fri_last_layer_deg_bound)?;
-    //     // let mut ctx = vec![U256::ZERO; CONTEXT_SIZE]; // to be defined
-    //     Ok(())
-    // }
+        // require(expected_log_deg_bound == log_trace_length, "Fri params do not match trace length");
+    }
 
     fn has_interaction() -> bool {
         true // CPUVerifier returns always true(For the purpose of our work only)
     }
 
-    // pub fn verify_proof(
+    // fn verify_proof(
     //     &self,
     //     proof_params: &[U256],
     //     proof: &[U256],
@@ -237,7 +122,7 @@ impl StarkVerifier {
 
     //     ctx[MM_TRACE_COMMITMENT] = read_hash(&proof, &ctx, &channel_ptr, true);
 
-    //     if StarkVerifier::has_interaction() {
+    //     if Self::has_interaction() {
     //         send_field_elements(&ctx, &channel_ptr, get_n_interaction_elements(), get_mm_interaction_elements());
     //         ctx[MM_TRACE_COMMITMENT + 1] = read_hash(&proof, &ctx, &channel_ptr, true);
     //     }
@@ -285,7 +170,7 @@ impl StarkVerifier {
     // }
 
     // Lyubo: Consider if stylus requires self in the function signature
-    pub fn read_last_fri_layer(proof: &mut [U256], ctx: &mut [U256]) {
+    fn read_last_fri_layer(proof: &mut [U256], ctx: &mut [U256]) {
         let lmm_channel = 10;
         let fri_last_layer_deg_bound = ctx[315].to::<usize>();
         let mut bad_input = U256::ZERO;
@@ -294,7 +179,7 @@ impl StarkVerifier {
         let last_layer_ptr = ctx[channel_ptr].to::<usize>();
         let last_layer_end = last_layer_ptr + fri_last_layer_deg_bound;
         for i in last_layer_ptr..last_layer_end {
-            if proof[i] > PRIME_MINUS_ONE {
+            if proof[i] > Self::PRIME_MINUS_ONE {
                 bad_input |= U256::from(1);
             } else {
                 bad_input |= U256::ZERO;
@@ -326,12 +211,12 @@ impl StarkVerifier {
     }
 
     fn compute_first_fri_layer(proof: &mut [U256], ctx: &mut [U256]) {
-        StarkVerifier::adjust_query_indices_and_prepare_eval_points(ctx);
-        StarkVerifier::read_query_responses_and_decommit(proof, ctx, 12, 9, 602, StarkVerifier::u256_to_bytes(ctx[6]));
-        if StarkVerifier::has_interaction() {
-            StarkVerifier::read_query_responses_and_decommit(proof, ctx, 12, 3, 611, StarkVerifier::u256_to_bytes(ctx[7]));
+        Self::adjust_query_indices_and_prepare_eval_points(ctx);
+        Self::read_query_responses_and_decommit(proof, ctx, 12, 9, 602, Self::u256_to_bytes(ctx[6]));
+        if Self::has_interaction() {
+            Self::read_query_responses_and_decommit(proof, ctx, 12, 3, 611, Self::u256_to_bytes(ctx[7]));
         }
-        StarkVerifier::read_query_responses_and_decommit(proof, ctx, 2, 2, 1178, StarkVerifier::u256_to_bytes(ctx[8]));
+        Self::read_query_responses_and_decommit(proof, ctx, 2, 2, 1178, Self::u256_to_bytes(ctx[8]));
 
         // Lyubo: How to handler reverts? "?" sign?
         // ctx[MM_FRI_QUEUE] = U256::from_be_slice(&static_call(
@@ -382,17 +267,17 @@ impl StarkVerifier {
             let mut j = proof_ptr;
             let mut input_data = Vec::new();
             while j < proof_ptr + row_size {
-                ctx[proof_data_ptr] = StarkVerifier::read_ptr(proof, j, 8);
+                ctx[proof_data_ptr] = Self::read_ptr(proof, j, 8);
                 input_data.extend_from_slice(&ctx[proof_data_ptr].to_be_bytes::<32>());
                 proof_data_ptr += 1;
                 j += 32;
             }
 
             let merkle_leaf_hash: U256 = keccak(&input_data).into();
-            let mut merkle_leaf = merkle_leaf_hash & COMMITMENT_MASK;
+            let mut merkle_leaf = merkle_leaf_hash & Self::COMMITMENT_MASK;
 
             if row_size == 32 {
-                merkle_leaf = StarkVerifier::read_ptr(proof, proof_ptr, 8);
+                merkle_leaf = Self::read_ptr(proof, proof_ptr, 8);
             } 
 
             ctx[merkle_ptr] = ctx[i];
@@ -407,108 +292,6 @@ impl StarkVerifier {
         ctx[channel_ptr] = U256::from(proof_ptr);
         MerkleStatementVerifier::verify_merkle(ctx, merkle_queue_ptr, merkle_root, n_unique_queries);
     }
-
-    // pub fn layout_specific_init(
-    //     ctx: &mut [U256],
-    //     public_input: &[U256],
-    // ) -> Result<(), VerifierError> {
-    //     // Output memory segment
-    //     let output_begin_addr = public_input[OFFSET_OUTPUT_BEGIN_ADDR];
-    //     let output_stop_ptr = public_input[OFFSET_OUTPUT_STOP_PTR];
-    //     require!(
-    //         output_begin_addr <= output_stop_ptr,
-    //         "output begin_addr must be <= stop_ptr"
-    //     );
-    //     require!(
-    //         output_stop_ptr < U256::from(1u64 << 64),
-    //         "Out of range output stop_ptr."
-    //     );
-
-    //     // Number of steps: nSteps = 2 ** ctx[MM_LOG_N_STEPS]
-    //     let n_steps: u64 = 1u64 << ctx[MM_LOG_N_STEPS].as_limbs()[0];
-
-    //     // Pedersen segment
-    //     ctx[MM_INITIAL_PEDERSEN_ADDR] = public_input[OFFSET_PEDERSEN_BEGIN_ADDR];
-    //     validate_builtin_pointers(
-    //         ctx[MM_INITIAL_PEDERSEN_ADDR],
-    //         public_input[OFFSET_PEDERSEN_STOP_PTR],
-    //         PEDERSEN_BUILTIN_RATIO,
-    //         3,
-    //         n_steps,
-    //         "pedersen",
-    //     )?;
-    //     ctx[MM_PEDERSEN__SHIFT_POINT_X] = U256::from_dec_str(
-    //         "33687124423693715171915430071063099500986961888935427573381850237373330333060",
-    //     )
-    //     .unwrap();
-    //     ctx[MM_PEDERSEN__SHIFT_POINT_Y] = U256::from_dec_str(
-    //         "27394515336187399075753500504026149502213372116606836955126321309182979900970",
-    //     )
-    //     .unwrap();
-
-    //     // Range Check segment
-    //     ctx[MM_INITIAL_RC_ADDR] = public_input[OFFSET_RANGE_CHECK_BEGIN_ADDR];
-    //     validate_builtin_pointers(
-    //         ctx[MM_INITIAL_RC_ADDR],
-    //         public_input[OFFSET_RANGE_CHECK_STOP_PTR],
-    //         RC_BUILTIN_RATIO,
-    //         1,
-    //         n_steps,
-    //         "range_check",
-    //     )?;
-    //     ctx[MM_RC16__PERM__PUBLIC_MEMORY_PROD] = U256::ONE;
-
-    //     // ECDSA segment
-    //     ctx[MM_INITIAL_ECDSA_ADDR] = public_input[OFFSET_ECDSA_BEGIN_ADDR];
-    //     validate_builtin_pointers(
-    //         ctx[MM_INITIAL_ECDSA_ADDR],
-    //         public_input[OFFSET_ECDSA_STOP_PTR],
-    //         ECDSA_BUILTIN_RATIO,
-    //         2,
-    //         n_steps,
-    //         "ecdsa",
-    //     )?;
-    //     ctx[MM_ECDSA__SIG_CONFIG_ALPHA] = U256::ONE;
-    //     ctx[MM_ECDSA__SIG_CONFIG_BETA] = U256::from_dec_str(
-    //         "50327761059496465184197731610822004429287718493293194845510360530958580779657",
-    //     )
-    //     .unwrap();
-    //     ctx[MM_ECDSA__SIG_CONFIG_SHIFT_POINT_X] = U256::from_dec_str(
-    //         "33687124423693715171915430071063099500986961888935427573381850237373330333060",
-    //     )
-    //     .unwrap();
-    //     ctx[MM_ECDSA__SIG_CONFIG_SHIFT_POINT_Y] = U256::from_dec_str(
-    //         "27394515336187399075753500504026149502213372116606836955126321309182979900970",
-    //     )
-    //     .unwrap();
-
-    //     // Bitwise segment
-    //     ctx[MM_INITIAL_BITWISE_ADDR] = public_input[OFFSET_BITWISE_BEGIN_ADDR];
-    //     validate_builtin_pointers(
-    //         ctx[MM_INITIAL_BITWISE_ADDR],
-    //         public_input[OFFSET_BITWISE_STOP_ADDR],
-    //         BITWISE__RATIO,
-    //         5,
-    //         n_steps,
-    //         "bitwise",
-    //     )?;
-    //     ctx[MM_DILUTED_CHECK__PERMUTATION__PUBLIC_MEMORY_PROD] = U256::ONE;
-    //     ctx[MM_DILUTED_CHECK__FIRST_ELM] = U256::ZERO;
-
-    //     // EC_OP segment
-    //     ctx[MM_INITIAL_EC_OP_ADDR] = public_input[OFFSET_EC_OP_BEGIN_ADDR];
-    //     validate_builtin_pointers(
-    //         ctx[MM_INITIAL_EC_OP_ADDR],
-    //         public_input[OFFSET_EC_OP_STOP_ADDR],
-    //         EC_OP_BUILTIN_RATIO,
-    //         7,
-    //         n_steps,
-    //         "ec_op",
-    //     )?;
-    //     ctx[MM_EC_OP__CURVE_CONFIG_ALPHA] = U256::ONE;
-
-    //     Ok(())
-    // }
 
     fn read_ptr(proof: &[U256], ptr: usize, offset: usize) -> U256 {
         let element_index = ptr / 32;
@@ -568,4 +351,5 @@ mod tests {
     //     let merkle_root = StarkVerifier::u256_to_bytes(ctx[6]);
     //     StarkVerifier::read_query_responses_and_decommit(&mut proof, &mut ctx, 12, 9, 602, merkle_root);
     // }
+
 }

@@ -195,7 +195,7 @@ contract CpuVerifier is
             // (skipping length word).
             mstore(add(ctx, mul(add(lmmPublicInputPtr, 1), 0x20)), add(publicInput, 0x20))
         }
-
+        
         layoutSpecificInit(ctx, publicInput);
     }
 
@@ -248,8 +248,6 @@ contract CpuVerifier is
             K_MODULUS
         );
 
-        // console.log("denominator", denominator);
-
         // Compute address + alpha * value for the first address-value pair for padding.
         uint256 publicInputPtr = ctx[MM_PUBLIC_INPUT_PTR];
         uint256 paddingAddr;
@@ -267,8 +265,6 @@ contract CpuVerifier is
 
         // Calculate the numerator.
         uint256 numerator = fpow(z, publicMemorySize);
-        // console.log("denominator", denominator);
-        // console.log("numerator", numerator);
         // Compute the final result: numerator * denominator^(-1).
         return fmul(numerator, inverse(denominator));
     }

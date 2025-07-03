@@ -21,9 +21,9 @@ use alloc::vec::Vec;
 
 // use macros::require;
 use offsets::PublicMemoryOffset;
+use stark_verifier::StarkVerifier;
 use layout_specific::LayoutSpecific;
 use prime_field_element0::PrimeFieldElement0;
-// mod stark_verifier;
 
 use stylus_sdk::{
     alloy_primitives::{address, FixedBytes, U256},
@@ -42,7 +42,7 @@ impl PublicMemoryOffset for CpuVerifier {
 }
 
 // #[public]
-impl CpuVerifier {
+impl StarkVerifier for CpuVerifier{
     // pub fn verify_proof_external(
     //     &self,
     //     proof_params: Vec<U256>,
@@ -53,7 +53,56 @@ impl CpuVerifier {
     //     stark_verifier::StarkVerifier {}.verify_proof(&proof_params, &proof, &public_input)
     // }
 
-    pub fn get_public_input_hash(&self, public_input: &[U256]) -> FixedBytes<32> {
+    fn air_specific_init(public_input: &[U256]) -> (Vec<U256>, U256) {
+        // require(public_input.len() >= 22, "publicInput is too short.");
+        let mut ctx = vec![U256::ZERO; 1277];
+        ctx[325] = U256::from(65536);
+        ctx[326] = U256::from(32768);
+
+        let log_n_steps = public_input[1];
+        // require(log_n_steps < U256::from(50), "Number of steps is too large.");
+        ctx[1274] = log_n_steps;
+        let log_trace_length = log_n_steps + U256::from(4);
+        
+        ctx[336] = public_input[2];
+        ctx[337] = public_input[3];
+        // require(ctx[336] <= ctx[337], "rc_min must be <= rc_max");
+        // require(ctx[337] < ctx[325], "rc_max out of range");
+        // require(public_input[4] == uint!(42800643258479064999893963318903811951182475189843316_U256), "Layout code mismatch.");
+
+        ctx[328] = public_input[5];
+        ctx[330] = public_input[6];
+        // require(ctx[328] == U256::from(1), "Invalid initial pc");
+        // require(ctx[300] == U256::from(5), "Invalid final pc");
+
+        ctx[327] = public_input[7];
+        ctx[329] = public_input[8];
+        // require(public_input[21] >= U256::from(1) && public_input[21] < U256::from(100000), "Invalid number of memory pages.");
+
+        ctx[1276] = public_input[21];
+
+        let mut n_public_memory_entries = U256::from(0);
+        for page in 0..ctx[1276].to::<usize>() {
+            let n_page_entries = public_input[CpuVerifier::get_offset_page_size(page)];
+            // require(n_page_entries < U256::from(1073741824), "Too many public memory entries in one page.");
+            n_public_memory_entries += n_page_entries;
+        }
+        ctx[1275] = n_public_memory_entries;
+
+        let expected_public_input_length = CpuVerifier::get_public_input_length(ctx[1276].to::<usize>());
+        // require(expected_public_input_length == public_input.len(), "Public input length mismatch.");
+
+        
+        LayoutSpecific::layout_specific_init(&mut ctx, public_input);
+
+        (ctx, log_trace_length)
+    }
+    
+}
+
+impl CpuVerifier {
+        
+    fn get_public_input_hash(&self, public_input: &[U256]) -> FixedBytes<32> {
         let n_pages = public_input[21].to::<usize>();
         let mut input_data = Vec::new();
         for i in 1..n_pages {
@@ -63,23 +112,23 @@ impl CpuVerifier {
         keccak(&input_data).into()
     }
 
-    pub fn get_n_interaction_elements(&self) -> usize {
+    fn get_n_interaction_elements(&self) -> usize {
         6
     }
 
-    pub fn get_mm_interaction_elements(&self) -> usize {
+    fn get_mm_interaction_elements(&self) -> usize {
         352
     }
 
-    pub fn get_mm_oods_values(&self) -> usize {
+    fn get_mm_oods_values(&self) -> usize {
         359
     }
 
-    pub fn get_n_oods_values(&self) -> usize {
+    fn get_n_oods_values(&self) -> usize {
         194
     }
 
-    pub fn oods_consistency_check(ctx: &mut [U256], public_input: &[U256]) {
+    fn oods_consistency_check(ctx: &mut [U256], public_input: &[U256]) {
         CpuVerifier::verify_memory_page_facts(ctx, public_input);
         ctx[331] = ctx[352];
         ctx[332] = ctx[353];
@@ -111,10 +160,10 @@ impl CpuVerifier {
             let prod = public_input[prod_ptr];
             let page_size = public_input[page_size_ptr];
 
-            let mut pageAddr = U256::ZERO;
+            let mut page_addr = U256::ZERO;
             if page > 0 {
                 let page_addr_ptr = ctx[5].to::<usize>() + CpuVerifier::get_offset_page_addr(page);
-                pageAddr = public_input[page_addr_ptr];
+                page_addr = public_input[page_addr_ptr];
             }
 
             let mut page_type = U256::from(1);
@@ -129,7 +178,7 @@ impl CpuVerifier {
             hash_buffer.extend_from_slice(&ctx[353].to_be_bytes::<32>());
             hash_buffer.extend_from_slice(&prod.to_be_bytes::<32>());
             hash_buffer.extend_from_slice(&memory_hash.to_be_bytes::<32>());
-            hash_buffer.extend_from_slice(&pageAddr.to_be_bytes::<32>());
+            hash_buffer.extend_from_slice(&page_addr.to_be_bytes::<32>());
             let fact_hash_output: FixedBytes<32> = keccak(&hash_buffer).into();
 
             // Lyubo: Use memory_page_fact_registry from the storage
@@ -186,7 +235,30 @@ mod tests {
     //     // let mut proof = test_constants::get_proof();
     //     // let mut ctx = test_constants::get_ctx_oods_consistency_check();
     //     // let public_input = test_constants::get_public_input();
-    //     // CpuVerifier::oods_consistency_check(&mut ctx, &public_input);
+    //     // Self::oods_consistency_check(&mut ctx, &public_input);
+    // }
+
+    // #[motsu::test]
+    // fn test_air_specific_init() {
+    //     let public_input = test_constants::get_public_input();
+    //     let (ctx, log_trace_length) = CpuVerifier::air_specific_init(&public_input);
+    //     let ctx_expected = test_constants::get_ctx_air_specific_init();
+
+    //     for i in 0..ctx.len() {
+    //         assert_eq!(ctx[i], ctx_expected[i]);
+    //     }
+    //     assert_eq!(log_trace_length, U256::from(26));
+    // }
+
+    // #[motsu::test]
+    // fn test_init_verifier_params() {
+    //     let public_input = test_constants::get_public_input();
+    //     let proof_params = test_constants::get_proof_params();
+    //     let (ctx, fri_step_sizes) = CpuVerifier::init_verifier_params(&public_input, &proof_params);
+    //     let ctx_expected = test_constants::get_ctx_init_verifier_params();
+    //     for i in 0..ctx.len() {
+    //         assert_eq!(ctx[i], ctx_expected[i]);
+    //     }
     // }
 
 }

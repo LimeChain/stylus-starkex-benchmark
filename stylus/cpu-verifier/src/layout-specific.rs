@@ -7,7 +7,7 @@ use alloc::vec::Vec;
 mod prime_field_element0;
 
 use prime_field_element0::PrimeFieldElement0;
-use stylus_sdk::alloy_primitives::U256;
+use stylus_sdk::alloy_primitives::{U256, uint};
 
 pub struct LayoutSpecific {}
 
@@ -34,6 +34,51 @@ impl LayoutSpecific {
         Ok((public_memory_offset, selected_builtins))
     }
 
+    pub fn layout_specific_init(ctx: &mut [U256], public_input: &[U256]) {
+        let output_begin_addr = public_input[9];
+        let output_stop_ptr = public_input[10];
+        // require!(output_begin_addr <= output_stop_ptr, "output begin_addr must be <= stop_ptr");
+        // require!(output_stop_ptr < U256::from(18446744073709551616), "Out of range output stop_ptr.");
+
+        let n_steps = U256::from(1) << ctx[1274];
+        ctx[346] = public_input[11];
+        LayoutSpecific::validate_builtin_pointers(ctx[346], public_input[12], U256::from(128), U256::from(3), n_steps);
+
+        ctx[344] = uint!(2089986280348253421170679821480865132823066470938446095505822317253594081284_U256);
+        ctx[345] = uint!(1713931329540660377023406109199410414810705867260802078187082345529207694986_U256);
+        ctx[347] = public_input[13];
+        LayoutSpecific::validate_builtin_pointers(ctx[347], public_input[14], U256::from(8), U256::from(1), n_steps);
+
+        ctx[335] = U256::from(1);
+        ctx[348] = public_input[15];
+        LayoutSpecific::validate_builtin_pointers(ctx[348], public_input[16], U256::from(8), U256::from(5), n_steps);
+
+        ctx[339] = U256::from(1);
+        ctx[340] = U256::from(0);
+
+        ctx[349] = public_input[17];
+        LayoutSpecific::validate_builtin_pointers(ctx[349], public_input[18], U256::from(8), U256::from(6), n_steps);
+    }
+
+
+    pub fn validate_builtin_pointers(
+        initial_address: U256,
+        stop_address: U256,
+        builtin_ratio: U256,
+        cells_per_instance: U256,
+        n_steps: U256
+    ) {
+        // require!(
+        //     initial_address < U256::from(18446744073709551616),
+        //     "Out of range begin_addr."
+        // );
+        let max_stop_ptr = initial_address + cells_per_instance * LayoutSpecific::safe_div(n_steps, builtin_ratio);
+        // require!(
+        //     initial_address <= stop_address && stop_address <= max_stop_ptr,
+        //     "Invalid stop_ptr."
+        // );
+    }
+
     pub fn safe_div(
         numerator: U256,
         denominator: U256
@@ -48,17 +93,6 @@ impl LayoutSpecific {
         // );
         numerator / denominator
     }
-
-    // fn validate_builtin_pointers(
-    //     initial_address: U256,
-    //     stop_address: U256,
-    //     builtin_ratio: U256,
-    //     cells_per_instance: U256,
-    //     n_steps: U256,
-    //     builtin_name: &str,
-    // ) -> Result<(), VerifierError> {
-    //     Ok(())
-    // }
 
     pub fn prepare_for_oods_check(ctx: &mut [U256]) {
         let oods_point = ctx[351];
@@ -122,6 +156,22 @@ mod tests {
     //     let mut ctx = test_constants::get_ctx_compute_diluted_cumulative_value();
     //     let diluted_cumulative_value = LayoutSpecific::compute_diluted_cumulative_value(&ctx);
     //     assert_eq!(diluted_cumulative_value, uint!(1552215061468209516830163195514878071221879601444981698864155012436627340325_U256));
+    // }
+
+    // #[motsu::test]
+    // fn test_layout_specific_init() {
+    //     let mut ctx = test_constants::get_ctx_layout_specific_init();
+    //     let public_input = test_constants::get_public_input();
+    //     LayoutSpecific::layout_specific_init(&mut ctx, &public_input);
+    //     assert_eq!(ctx[346], uint!(2392152_U256));
+    //     assert_eq!(ctx[344], uint!(2089986280348253421170679821480865132823066470938446095505822317253594081284_U256));
+    //     assert_eq!(ctx[345], uint!(1713931329540660377023406109199410414810705867260802078187082345529207694986_U256));
+    //     assert_eq!(ctx[347], uint!(2490456_U256));
+    //     assert_eq!(ctx[335], uint!(1_U256));
+    //     assert_eq!(ctx[348], uint!(3014744_U256));
+    //     assert_eq!(ctx[339], uint!(1_U256));
+    //     assert_eq!(ctx[340], uint!(0_U256));
+    //     assert_eq!(ctx[349], uint!(5636184_U256));
     // }
 
 }

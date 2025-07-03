@@ -153,6 +153,7 @@ abstract contract StarkVerifier is
         assembly {
             mstore(friStepSizesPtr, friStepSizes)
         }
+
         ctx[MM_FRI_LAST_LAYER_DEG_BOUND] = 2**logFriLastLayerDegBound;
         ctx[MM_TRACE_LENGTH] = 2**logTraceLength;
 
@@ -177,6 +178,10 @@ abstract contract StarkVerifier is
         uint256 genEvalDomain = fpow(GENERATOR_VAL, (K_MODULUS - 1) / ctx[MM_EVAL_DOMAIN_SIZE]);
         ctx[MM_EVAL_DOMAIN_GENERATOR] = genEvalDomain;
         ctx[MM_TRACE_GENERATOR] = fpow(genEvalDomain, ctx[MM_BLOW_UP_FACTOR]);
+
+        for (uint256 i = 0; i < ctx.length; i++) {
+            console.log("ctx", ctx[i]);
+        }
     }
 
     function getPublicInputHash(uint256[] memory publicInput)
@@ -185,6 +190,7 @@ abstract contract StarkVerifier is
         virtual
         returns (bytes32);
 
+  
     function oodsConsistencyCheck(uint256[] memory ctx) internal view virtual;
 
     function getNColumnsInTrace() internal pure virtual returns (uint256);
@@ -504,8 +510,6 @@ abstract contract StarkVerifier is
         }
         require(badInput == 0, "Invalid field element.");
         ctx[MM_FRI_LAST_LAYER_PTR] = lastLayerPtr;
-        console.log(val);
-        console.log("lastLayerPtr", lastLayerPtr);
     }
 
     function verifyProof(
@@ -514,7 +518,6 @@ abstract contract StarkVerifier is
         uint256[] memory publicInput
     ) internal view override {
         uint256[] memory ctx = initVerifierParams(publicInput, proofParams);
-        console.log("ctx", ctx[10]);
         uint256 channelPtr = getChannelPtr(ctx);
 
         initChannel(channelPtr, getProofPtr(proof), getPublicInputHash(publicInput));

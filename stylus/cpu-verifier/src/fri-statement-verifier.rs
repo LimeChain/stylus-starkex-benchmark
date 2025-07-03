@@ -130,19 +130,18 @@ mod tests {
 
     // #[motsu::test]
     // fn test_fri_verify_layers() {
-    //     let friStepSizes: [U256; 8] = [
-    //         U256::from(3), 
-    //         U256::from(3), 
-    //         U256::from(3), 
-    //         U256::from(3), 
-    //         U256::from(3), 
-    //         U256::from(3), 
-    //         U256::from(3), 
-    //         U256::from(2)]
-    //     ;
+    //     let mut fri_step_sizes = Vec::new();
+    //     fri_step_sizes.push(U256::from(3));
+    //     fri_step_sizes.push(U256::from(3));
+    //     fri_step_sizes.push(U256::from(3));
+    //     fri_step_sizes.push(U256::from(3));
+    //     fri_step_sizes.push(U256::from(3));
+    //     fri_step_sizes.push(U256::from(3));
+    //     fri_step_sizes.push(U256::from(3));
+    //     fri_step_sizes.push(U256::from(2));
     //     let proof = test_constants::get_proof();
     //     let mut ctx = test_constants::get_ctx_fri_verify_layers();
-    //     FriStatementVerifier::fri_verify_layers(&mut ctx, &proof, &friStepSizes);
+    //     FriStatementVerifier::fri_verify_layers(&mut ctx, &proof, &fri_step_sizes);
     // }
 
     // #[motsu::test]
