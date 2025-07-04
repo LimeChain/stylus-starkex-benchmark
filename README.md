@@ -21,12 +21,30 @@ and retry installing the stylus tool.
 
 To compare both implementation we will use this [transaction](https://dashboard.tenderly.co/tx/0x3acee509e2bb475eb7f35d60b439cd074e6af1a9db974136d0f2e78fd76ab90b?trace=0.1.1.5.0.431.17).
 There are a few interesting moments we found out:
+
 - Some of the contracts have been automatically generated, but the generator code is not publicly available
 - The logic uses layout7 which does not exist in the `evm-verifier` repository. We found it from [here](https://github.com/Draply/Stark-verifier/tree/master/src/verifier/cpu/layout7).
 - The logic uses poseidon arithmetic which does not exist in the `evm-verifier` repository. We found it from [here](https://github.com/Bisht13/post-quantum-eth-security/tree/main/contracts/periodic_columns).
 
 > [!IMPORTANT]
 > The provided numbers below are **L2_GAS** gas costs, because that's what's most important, since it represents the actual computational cost of the transactions, and not the `L1` calldata fees that are always fluctuating.
+
+| contract\gas cost | Deploy Stylus | Deploy Solidity | Deploy Diff | Call Stylus | Call Solidity | Call Diff |
+|-----------|---------------|-----------------|-----------------|--------------|--------------|--------------|
+| pedersen-hp-x-c | 5_393_222 | 4_230_105 | +1_163_117(27.5% more) | 151_995 | 32_712 | +119_283(364.6% more) |
+| pedersen-hp-y-c | 5_381_591 | 4_231_137 | +1_150_454(27.2% more) | 152_012 | 32_712 | +119_300(364.6% more) |
+| poseidon-frk-0-col | 1_869_383 | 166_753 | +1_702_630(10210% more) | 40_104 | 22_402 | +17_702(79.0% more) |
+| poseidon-frk-1-col | 1_868_935 | 166_513 | +1_702_422(10213% more) | 40_104 | 22_402 | +17_702(79.0% more) |
+| poseidon-frk-2-col | 1_869_104 | 166729 | +1_702_375(1021% more) | 40_115 | 22_402 | +17_713(79.1% more) |
+| poseidon-prk-0-col | 2_311_839 | 618_006 | +1_693_833(274% more) | 52_644 | 23_589 | +29_055(123.2% more) |
+| poseidon-prk-1-col | 2_045_185 | 360_456 | +1_684_729(467.4 more) | 45_534 | 22_907 | +22_627(107.5% more) |
+| oods | 4_956_634 | 2_556_158 | +2_400_476(93.9% more) | 3_230_092 | 823_170 | +2_406_922(292.3% more) |
+| constraint-poly-preparer | 5_171_185 | - | - | - | - | - |
+| constraint-poly-finalizer | 4_436_374 | - | - | - | - | - |
+| constraint-poly | 3_316_404 | 2_311_631 | 1_004_773(43.46% more) | 624_920 | 304_110 | +320_810(105.4% more) |
+| mpfr | 4_296_904 | 665_328 | +3_631_576(545.8% more) | 1_151_619 | 675_308 | +476_311(70.5% more) |
+
+## Specific cases
 
 ### MemoryPageFactRegistry (storage + calculations)
 

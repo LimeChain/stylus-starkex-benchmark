@@ -25,9 +25,10 @@ nitro-test-mpfr:
 	forge test --match-contract MemoryPageFactRegistryTest \
 	--fork-url nitro -vvv
 
+mpfr_contract=0xa39ffa43eba037d67a0f4fe91956038aba0ca386
 .PHONY: mpfr_register_mem_page
 mpfr_register_mem_page:
-	@cast send $(contract) "registerRegularMemoryPage(uint256[],uint256,uint256,uint256)" \
+	@cast send $(mpfr_contract) "registerRegularMemoryPage(uint256[],uint256,uint256,uint256)" \
 	$(MPFR_INPUT) \
 	1923983994410949646266215635478491917832882166179969396251746181413976269170 \
 	2548115266380774413420845979236209449237376742700778263417656557146680537758 \
@@ -132,12 +133,16 @@ pedersen_cast_call:
 	--rpc-url nitro  --private-key $(nitro_pk) -vvv
 
 
-poly_contract=0x525c2aba45f66987217323e8a05ea400c65d06dc
+poly_contract=0x05C98569CA566a2035b87dE7d1b623C950798035
 fin_contract=0x525c2aba45f66987217323e8a05ea400c65d06dc
 preparer_contract=0x4a2ba922052ba54e29c5417bc979daaf7d5fe4f4
-.PHONY: constraint_poly_cast
-constraint_poly_cast:
-	cast call 0x525c2aba45f66987217323e8a05ea400c65d06dc $$(cat poly_input)  --rpc-url nitro
+.PHONY: constraint_poly_cast_full
+constraint_poly_cast_full:
+	cast call $(poly_contract) $$(cat stylus/testdata/poly_input.hex)  --rpc-url nitro
+
+.PHONY: constraint_poly_setup
+constraint_poly_setup:
+	cast send $(preparer_contract) $$(cat stylus/testdata/poly_input.hex)  --rpc-url nitro
 
 .PHONY: constraint_poly_prep
 constraint_poly_prep:
@@ -173,3 +178,7 @@ oods_contract_nitro=0x4a2ba922052ba54e29c5417bc979daaf7d5fe4f4
 .PHONY: oods_call_nitro
 oods_call_nitro:
 	@cast estimate -vvv $(oods_contract_nitro) $$(cat stylus/testdata/oods_input.hex ) --rpc-url nitro
+
+.PHONY: deploy
+deploy:
+	stylus/deploy.sh
