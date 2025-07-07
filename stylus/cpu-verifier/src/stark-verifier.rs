@@ -7,55 +7,126 @@ use stylus_sdk::{
     call::{static_call, Call},
 };
 
-#[path = "prime-field-element0.rs"]
-mod prime_field_element0;
-use prime_field_element0::PrimeFieldElement0;
+use macros::require;
 
-#[path = "merkle-statement-verifier.rs"]
-mod merkle_statement_verifier;
-use merkle_statement_verifier::MerkleStatementVerifier;
+use crate::prime_field_element0::PrimeFieldElement0;
+use crate::fri_statement_verifier::FriStatementVerifier;
+use crate::merkle_statement_verifier::MerkleStatementVerifier;
 
-pub trait StarkVerifier {
+use crate::verifier_channel::VerifierChannel;
+
+pub struct StarkVerifier{}
+
+#[public]
+#[inherit(MerkleStatementVerifier)]
+impl StarkVerifier {
     const PRIME_MINUS_ONE: U256 = uint!(0x800000000000011000000000000000000000000000000000000000000000000_U256);
     const COMMITMENT_MASK: U256 = uint!(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF000000000000000000000000_U256);
-    fn air_specific_init(public_input: &[U256]) -> (Vec<U256>, U256);
+    
+    fn air_specific_init(public_input: &[U256]) -> Result<(Vec<U256>, U256), Vec<u8>>;
+
+    fn oods_consistency_check(&self, ctx: &mut [U256], public_input: &[U256]) -> Result<(), Vec<u8>>;
+
+    fn get_public_input_hash(public_input: &[U256]) -> FixedBytes<32>;
+
+    fn verify_proof(
+        &self,
+        proof_params: &[U256],
+        proof: &mut [U256],
+        public_input: &[U256],
+    ) -> Result<(), Vec<u8>> {
+        let (mut ctx, fri_step_sizes) = Self::init_verifier_params(public_input, proof_params)?;
+        let channel_ptr = 10;
+
+        VerifierChannel::init_channel(
+            &mut ctx,
+            channel_ptr,
+            &Self::get_public_input_hash(public_input)
+        );
+
+        ctx[6] = VerifierChannel::read_hash(proof, &mut ctx, channel_ptr, true);
+
+        if self.has_interaction() {
+            VerifierChannel::send_field_elements(&mut ctx, channel_ptr, 6, 352)?;
+            ctx[7] = VerifierChannel::read_hash(proof, &mut ctx, channel_ptr, true);
+        }
+
+        VerifierChannel::send_field_elements(&mut ctx, channel_ptr, 1, 358)?;
+
+        ctx[8] = VerifierChannel::read_hash(proof, &mut ctx, channel_ptr, true);
+
+        VerifierChannel::send_field_elements(&mut ctx, channel_ptr, 1, 351)?;
+
+        let lmm_oods_values = 359;
+        for i in lmm_oods_values..lmm_oods_values + 194 {
+            ctx[i] = VerifierChannel::read_field_element(proof, &mut ctx, channel_ptr, true);
+        }
+
+        self.oods_consistency_check(&mut ctx, public_input)?;
+
+        VerifierChannel::send_field_elements(&mut ctx, channel_ptr, 1, 601)?;
+
+        ctx[305] = VerifierChannel::read_hash(proof, &mut ctx, channel_ptr, true);
+        
+        let n_fri_steps = fri_step_sizes.len();
+        let fri_eval_point_ptr = 295;
+        for i in 1..n_fri_steps - 1 {
+            VerifierChannel::send_field_elements(&mut ctx, channel_ptr, 1, fri_eval_point_ptr + i)?;
+            ctx[305 + i] = VerifierChannel::read_hash(proof, &mut ctx, channel_ptr, true);
+        }
+
+        VerifierChannel::send_field_elements(&mut ctx, channel_ptr, 1, 295 + n_fri_steps - 1)?;
+
+        self.read_last_fri_layer(proof, &mut ctx)?;
+
+        let proof_of_work_bits = ctx[3];
+        VerifierChannel::verify_proof_of_work(proof, &mut ctx, 10, proof_of_work_bits)?;
+
+        let count = ctx[9].to::<usize>();
+        let queries_ptr = ctx[0] - U256::from(1);
+        ctx[9] = VerifierChannel::send_random_queries(&mut ctx, 10, count, queries_ptr, U256::from(109), U256::from(3))?;
+
+        self.compute_first_fri_layer(proof, &mut ctx)?;
+        FriStatementVerifier::fri_verify_layers(&mut ctx, proof, &fri_step_sizes)?;
+        Ok(())
+    }
 
     fn init_verifier_params(
         public_input: &[U256],
         proof_params: &[U256],
-    ) -> (Vec<U256>, Vec<U256>) {
-        // require!(
-        //     proof_params.len() >= PROOF_PARAMS_FRI_STEPS_OFFSET,
-        //     "Invalid proof params"
-        // );
+    ) -> Result<(Vec<U256>, Vec<U256>), Vec<u8>> {
+        require!(
+            proof_params.len() >= 5,
+            "Invalid proof params"
+        );
        
-        // require!(
-        //     proof_params.len() == (PROOF_PARAMS_FRI_STEPS_OFFSET + proof_params[PROOF_PARAMS_N_FRI_STEPS_OFFSET]),
-        //     "Invalid proofParams."
-        // );
+        require!(
+            proof_params.len() == (5 + proof_params[4].to::<usize>()),
+            "Invalid proofParams."
+        );
         let log_blowup_factor = proof_params[1];
-        // require!(log_blowup_factor <= 16, "logBlowupFactor must be at most 16");
-        // require!(log_blowup_factor >= 1, "logBlowupFactor must be at least 1");
+        require!(log_blowup_factor <= U256::from(16), "logBlowupFactor must be at most 16");
+        require!(log_blowup_factor >= U256::from(1), "logBlowupFactor must be at least 1");
         
         let proof_of_work_bits = proof_params[2];
-        // require!(proof_of_work_bits <= 50, "proofOfWorkBits must be at most 50");
-        // require!(proof_of_work_bits >= 1, "minimum proofOfWorkBits not satisfied");
+        require!(proof_of_work_bits <= U256::from(50), "proofOfWorkBits must be at most 50");
+        require!(proof_of_work_bits >= U256::from(1), "minimum proofOfWorkBits not satisfied");
         // require!(proof_of_work_bits < num_security_bits, "Proofs may not be purely based on PoW.");
 
         let log_fri_last_layer_deg_bound = proof_params[3];
-        // require!(log_fri_last_layer_deg_bound <= 10, "logFriLastLayerDegBound must be at most 10.");
+        require!(log_fri_last_layer_deg_bound <= U256::from(10), "logFriLastLayerDegBound must be at most 10.");
 
         let n_fri_steps = proof_params[4].to::<usize>();
-        // require!(n_fri_steps <= MAX_FRI_STEPS, "Too many fri steps.");
-        // require!(n_fri_steps > 1, "Not enough fri steps.");
+        require!(n_fri_steps <= 10, "Too many fri steps.");
+        require!(n_fri_steps > 1, "Not enough fri steps.");
 
         let mut fri_step_sizes: Vec<U256> = Vec::new();
         for i in 0..n_fri_steps {
             fri_step_sizes.push(proof_params[5 + i]);
         }
 
-        let (mut ctx, log_trace_length) = Self::air_specific_init(public_input);
-        Self::validate_fri_params(&fri_step_sizes, log_trace_length, log_fri_last_layer_deg_bound);
+        let (mut ctx, log_trace_length) = Self::air_specific_init(public_input)?;
+        Self::validate_fri_params(&fri_step_sizes, log_trace_length, log_fri_last_layer_deg_bound)?;
 
         ctx[315] = U256::from(1) << log_fri_last_layer_deg_bound;
         ctx[324] = U256::from(1) << log_trace_length;
@@ -63,8 +134,8 @@ pub trait StarkVerifier {
         ctx[3] = proof_of_work_bits;
 
         let n_queries = proof_params[0];
-        // require!(n_queries > 0, "Number of queries must be at least one");
-        // require!(n_queries <= MAX_N_QUERIES, "Too many queries.");
+        require!(n_queries > U256::ZERO, "Number of queries must be at least one");
+        require!(n_queries <= U256::from(48), "Too many queries.");
         // require!(
         //     n_queries * log_blowup_factor + proof_of_work_bits >= num_security_bits,
         //     "Proof params do not satisfy security requirements."
@@ -78,7 +149,7 @@ pub trait StarkVerifier {
         ctx[4] = gen_eval_domain;
         ctx[350] = PrimeFieldElement0::fpow(gen_eval_domain, ctx[1]);
 
-        (ctx, fri_step_sizes)
+        Ok((ctx, fri_step_sizes))
     }
 
 
@@ -86,91 +157,28 @@ pub trait StarkVerifier {
         fri_step_sizes: &[U256],
         log_trace_length: U256,
         log_fri_last_layer_deg_bound: U256,
-    ) {
-        // require(fri_step_sizes[0] == U256::ZERO, "Only eta0 == 0 is currently supported");
+    ) -> Result<(), Vec<u8>> {
+        require!(fri_step_sizes[0] == U256::ZERO, "Only eta0 == 0 is currently supported");
 
         let mut expected_log_deg_bound = log_fri_last_layer_deg_bound;
         let n_fri_steps = fri_step_sizes.len();
         for i in 1..n_fri_steps {
             let fri_step_size = fri_step_sizes[i];
-            // require(fri_step_size >= U256::from(2), "Min supported fri step size is 2.");
-            // require(fri_step_size <= U256::from(4), "Max supported fri step size is 4.");
+            require!(fri_step_size >= U256::from(2), "Min supported fri step size is 2.");
+            require!(fri_step_size <= U256::from(4), "Max supported fri step size is 4.");
             expected_log_deg_bound += fri_step_size;
         }
 
-        // require(expected_log_deg_bound == log_trace_length, "Fri params do not match trace length");
+        require!(expected_log_deg_bound == log_trace_length, "Fri params do not match trace length");
+        Ok(())
     }
 
-    fn has_interaction() -> bool {
+    fn has_interaction(&self) -> bool {
         true // CPUVerifier returns always true(For the purpose of our work only)
     }
 
-    // fn verify_proof(
-    //     &self,
-    //     proof_params: &[U256],
-    //     proof: &[U256],
-    //     public_input: &[U256],
-    // ) -> Result<(), VerifierError> {
-    //     (let ctx, let friStepSizes) = self.init_verifier_params(public_input, proof_params)?;
-    //     let channel_ptr = get_channel_ptr();
-
-    //     init_channel(
-    //         &ctx,
-    //         &channel_ptr,
-    //         &get_public_input_hash(public_input)
-    //     );
-
-    //     ctx[MM_TRACE_COMMITMENT] = read_hash(&proof, &ctx, &channel_ptr, true);
-
-    //     if Self::has_interaction() {
-    //         send_field_elements(&ctx, &channel_ptr, get_n_interaction_elements(), get_mm_interaction_elements());
-    //         ctx[MM_TRACE_COMMITMENT + 1] = read_hash(&proof, &ctx, &channel_ptr, true);
-    //     }
-
-    //     send_field_elements(&ctx, &channel_ptr, 1, MM_COMPOSITION_ALPHA);
-
-    //     ctx[MM_OODS_COMMITMENT] = read_hash(&proof, &ctx, &channel_ptr, true);
-
-    //     send_field_elements(&ctx, &channel_ptr, 1, MM_OODS_POINT);
-
-    //     let lmm_oods_values = get_mm_oods_values();
-    //     for i in lmm_oods_values..lmm_oods_values + get_n_oods_values() {
-    //         ctx[i] = read_field_element(&proof, &ctx, &channel_ptr, true);
-    //     }
-
-    //     oods_consistency_check(&ctx);
-
-    //     send_field_elements(&ctx, &channel_ptr, 1, MM_OODS_ALPHA);
-
-    //     ctx[MM_FRI_COMMITMENTS] = read_hash(&proof, &ctx, &channel_ptr, true);
-        
-    //     let n_fri_steps = get_fri_step_sizes(&ctx).len();
-    //     let fri_eval_point_ptr = 295 // Lyubo: Use MM_FRI_EVAL_POINTS;
-    //     for i in 1..n_fri_steps - 1 {
-    //         send_field_elements(&ctx, &channel_ptr, 1, fri_eval_point_ptr + i);
-    //         ctx[MM_FRI_COMMITMENTS + i] = read_hash(&proof, &ctx, &channel_ptr, true);
-    //     }
-
-    //     // Send last random FRI evaluation point.
-    //     send_field_elements(&ctx, &channel_ptr, 1, 295 + n_fri_steps - 1);
-
-    //     // Read FRI last layer commitment.
-    //     read_last_fri_layer(&ctx);
-
-    //     // Generate queries.
-    //     verify_proof_of_work(&ctx, &channel_ptr, ctx[MM_PROOF_OF_WORK_BITS]);
-
-    //     // Lyubo:FRI_QUEUE_SLOT_SIZE_IN_BYTES should be FRI_QUEUE_SLOT_SIZE and define it
-    //     ctx[MM_N_UNIQUE_QUERIES] = send_random_queries(&ctx, &channel_ptr, ctx[MM_N_UNIQUE_QUERIES], ctx[MM_EVAL_DOMAIN_SIZE] - 1, MM_FRI_QUEUE, 3);
-
-    //     self.compute_first_fri_layer(&proof, &ctx);
-
-    //     fri_verify_layers(&ctx, &proof, &friStepSizes);
-    //     Ok(())
-    // }
-
     // Lyubo: Consider if stylus requires self in the function signature
-    fn read_last_fri_layer(proof: &mut [U256], ctx: &mut [U256]) {
+    fn read_last_fri_layer(&self, proof: &mut [U256], ctx: &mut [U256]) -> Result<(), Vec<u8>> {
         let lmm_channel = 10;
         let fri_last_layer_deg_bound = ctx[315].to::<usize>();
         let mut bad_input = U256::ZERO;
@@ -199,9 +207,9 @@ pub trait StarkVerifier {
         ctx[channel_ptr + 2] = U256::ZERO;
         ctx[channel_ptr] = U256::from(last_layer_end);
 
-        // require!(bad_input == U256::ZERO, "Invalid field element.");
+        require!(bad_input == U256::ZERO, "Invalid field element.");
         ctx[316] = U256::from(last_layer_ptr);
-        // Ok(())
+        Ok(())
     }
 
     // // Lyubo: Move to utils.rs
@@ -210,13 +218,13 @@ pub trait StarkVerifier {
         FixedBytes(value_bytes)
     }
 
-    fn compute_first_fri_layer(proof: &mut [U256], ctx: &mut [U256]) {
-        Self::adjust_query_indices_and_prepare_eval_points(ctx);
-        Self::read_query_responses_and_decommit(proof, ctx, 12, 9, 602, Self::u256_to_bytes(ctx[6]));
-        if Self::has_interaction() {
-            Self::read_query_responses_and_decommit(proof, ctx, 12, 3, 611, Self::u256_to_bytes(ctx[7]));
+    fn compute_first_fri_layer(&self, proof: &mut [U256], ctx: &mut [U256]) -> Result<(), Vec<u8>> {
+        self.adjust_query_indices_and_prepare_eval_points(ctx);
+        self.read_query_responses_and_decommit(proof, ctx, 12, 9, 602, Self::u256_to_bytes(ctx[6]))?;
+        if self.has_interaction() {
+            self.read_query_responses_and_decommit(proof, ctx, 12, 3, 611, Self::u256_to_bytes(ctx[7]))?;
         }
-        Self::read_query_responses_and_decommit(proof, ctx, 2, 2, 1178, Self::u256_to_bytes(ctx[8]));
+        self.read_query_responses_and_decommit(proof, ctx, 2, 2, 1178, Self::u256_to_bytes(ctx[8]))?;
 
         // Lyubo: How to handler reverts? "?" sign?
         // ctx[MM_FRI_QUEUE] = U256::from_be_slice(&static_call(
@@ -224,9 +232,10 @@ pub trait StarkVerifier {
         //     oodsContractAddress,
         //     &ctx
         // ));
+        Ok(())
     }
 
-    fn adjust_query_indices_and_prepare_eval_points(ctx: &mut [U256]) {
+    fn adjust_query_indices_and_prepare_eval_points(&self, ctx: &mut [U256]) {
         let n_unique_queries = ctx[9].to::<usize>();
         let fri_queue = 109;
         let fri_queue_end = fri_queue + n_unique_queries * 3;
@@ -247,9 +256,14 @@ pub trait StarkVerifier {
         }
     }
 
-    // // Lyubo: pass proof as it work with proof data, not only the ctx
-    fn read_query_responses_and_decommit(proof: &mut [U256], ctx: &mut [U256], n_total_columns: usize, n_columns: usize, mut proof_data_ptr: usize, merkle_root: FixedBytes<32>) {
-        // require!(n_columns <= n_total_columns, b"Too many columns.");
+    fn read_query_responses_and_decommit(
+        &self,
+        proof: &mut [U256], 
+        ctx: &mut [U256], 
+        n_total_columns: usize, 
+        n_columns: usize, 
+        mut proof_data_ptr: usize, merkle_root: FixedBytes<32>) -> Result<(), Vec<u8>> {
+        require!(n_columns <= n_total_columns, "Too many columns.");
 
         let n_unique_queries = ctx[9].to::<usize>();
         let channel_ptr = 10;
@@ -290,7 +304,8 @@ pub trait StarkVerifier {
         }
 
         ctx[channel_ptr] = U256::from(proof_ptr);
-        MerkleStatementVerifier::verify_merkle(ctx, merkle_queue_ptr, merkle_root, n_unique_queries);
+        self.verify_merkle(ctx, merkle_queue_ptr, merkle_root, n_unique_queries)?;
+        Ok(())
     }
 
     fn read_ptr(proof: &[U256], ptr: usize, offset: usize) -> U256 {
@@ -307,49 +322,3 @@ pub trait StarkVerifier {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    mod test_constants;
-
-    // #[motsu::test]
-    // fn test_read_last_fri_layer() {
-    //     let mut proof = test_constants::get_proof();
-    //     let mut ctx = test_constants::get_ctx_read_last_fri_layer();
-    //     StarkVerifier::read_last_fri_layer(&mut proof, &mut ctx);
-
-    //     assert_eq!(ctx[10], uint!(268_U256));
-    //     assert_eq!(ctx[11], uint!(101063039785234930674416911940782140361807536835453250352760633033315826439229_U256));
-    //     assert_eq!(ctx[316], uint!(204_U256));
-    // }
-
-    // Lyubo: Should fix this test
-    // #[motsu::test]
-    // fn test_compute_first_fri_layer() {
-    //     let mut proof = test_constants::get_proof();
-    //     let mut ctx = test_constants::get_ctx_compute_first_fri_layer();
-    //     StarkVerifier::compute_first_fri_layer(&mut proof, &mut ctx);
-    // }
-
-    // #[motsu::test]
-    // fn test_adjust_query_indices_and_prepare_eval_points() {
-    //     let mut ctx = test_constants::get_ctx_compute_first_fri_layer();
-    //     StarkVerifier::adjust_query_indices_and_prepare_eval_points(&mut ctx);
-    //     assert_eq!(ctx[553], uint!(3515892385904170702434114719646176958489529091479346127319408828731691841909_U256));
-    //     assert_eq!(ctx[109], uint!(4818245268_U256));
-    //     assert_eq!(ctx[139], uint!(8285752452_U256));
-    // }
-
-    // // Lyubo: Finish this test with asserts
-    // #[motsu::test]
-    // fn test_read_query_responses_and_decommit() {
-    //     let mut proof = test_constants::get_proof();
-    //     let mut ctx = test_constants::get_ctx_compute_first_fri_layer();
-    //     StarkVerifier::adjust_query_indices_and_prepare_eval_points(&mut ctx);
-
-    //     ctx[10] = U256::from(8584); // proof pointer
-    //     let merkle_root = StarkVerifier::u256_to_bytes(ctx[6]);
-    //     StarkVerifier::read_query_responses_and_decommit(&mut proof, &mut ctx, 12, 9, 602, merkle_root);
-    // }
-
-}

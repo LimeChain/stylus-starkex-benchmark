@@ -1,9 +1,8 @@
-#![cfg_attr(not(any(test)), no_main)]
 extern crate alloc;
 use alloc::vec::Vec;
 
-use stylus_sdk::alloy_primitives::{uint, address, U256};
 use stylus_sdk::call::{static_call, Call};
+use stylus_sdk::alloy_primitives::{uint, address, U256};
 
 pub struct PrimeFieldElement0 {}
 
@@ -41,7 +40,7 @@ impl PrimeFieldElement0 {
     pub fn expmod(base: U256, exponent: U256, modulus: U256) -> U256 {
         #[cfg(not(test))]
         {
-            let mut input_data = Vec::with_capacity(192);
+            let mut input_data = Vec::new();
 
             // Length fields (32 bytes each)
             input_data.extend_from_slice(&U256::from(32).to_be_bytes::<32>()); // base length
@@ -88,10 +87,10 @@ impl PrimeFieldElement0 {
 mod tests {
     use super::*;
 
-    // #[motsu::test]
-    // fn test_bit_reverse() {
-    //     let res = PrimeFieldElement0::bit_reverse(uint!(523277972_U256), 32);
-    //     assert_eq!(res, uint!(694750456_U256));
-    // }
+    #[motsu::test]
+    fn test_bit_reverse() {
+        let res = PrimeFieldElement0::bit_reverse(uint!(523277972_U256), 32);
+        assert_eq!(res, uint!(694750456_U256));
+    }
 
 }

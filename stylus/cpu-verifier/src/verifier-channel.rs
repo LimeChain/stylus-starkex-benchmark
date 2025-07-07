@@ -1,13 +1,8 @@
-#![cfg_attr(not(any(test)), no_main)]
 extern crate alloc;
 use alloc::vec::Vec;
 
 use macros::require;
-
-#[path = "prime-field-element0.rs"]
-mod prime_field_element0;
-
-use prime_field_element0::PrimeFieldElement0;
+use crate::prime_field_element0::PrimeFieldElement0;
 
 use stylus_sdk::{
     alloy_primitives::{FixedBytes, U256, uint},
@@ -47,8 +42,8 @@ impl VerifierChannel {
     }
 
     #[inline]
-    pub fn read_hash(proof: &[U256], ctx: &mut [U256], channel_ptr: usize, mix: bool) -> FixedBytes<32> {
-        VerifierChannel::read_bytes(proof, ctx, channel_ptr, mix).into()
+    pub fn read_hash(proof: &[U256], ctx: &mut [U256], channel_ptr: usize, mix: bool) -> U256 {
+        VerifierChannel::read_bytes(proof, ctx, channel_ptr, mix)
     }
 
     #[inline]
@@ -101,7 +96,7 @@ impl VerifierChannel {
 
     // Lyubo: Consider how to reuse the input_data vector
     #[inline]
-    pub fn send_field_elements(ctx: &mut [U256], channel_ptr: usize, n_elements: usize, target_ptr: usize) -> Result<(), String> {
+    pub fn send_field_elements(ctx: &mut [U256], channel_ptr: usize, n_elements: usize, target_ptr: usize) -> Result<(), Vec<u8>> {
         require!(
             n_elements < 16777216,
             "Overflow protection failed."
@@ -133,7 +128,7 @@ impl VerifierChannel {
 
     // Lyubo: Optimise the vec allocations
     #[inline]
-    pub fn verify_proof_of_work(proof: &[U256], ctx: &mut [U256], channel_ptr: usize, proof_of_work_bits: U256) -> Result<U256, String> {
+    pub fn verify_proof_of_work(proof: &[U256], ctx: &mut [U256], channel_ptr: usize, proof_of_work_bits: U256) -> Result<U256, Vec<u8>> {
         if proof_of_work_bits == U256::ZERO {
             return Ok(U256::ZERO);
         }
@@ -170,7 +165,7 @@ impl VerifierChannel {
 
     // Lyubo: Optimise index access
     #[inline]
-    pub fn send_random_queries(ctx: &mut [U256], channel_ptr: usize, count: usize, mask: U256, queries_out_ptr: U256, stride: U256) -> Result<U256, String> {
+    pub fn send_random_queries(ctx: &mut [U256], channel_ptr: usize, count: usize, mask: U256, queries_out_ptr: U256, stride: U256) -> Result<U256, Vec<u8>> {
         require!(mask < U256::from(1) << U256::from(64), "mask must be < 2**64.");
 
         let mut val = U256::from(0);
@@ -217,86 +212,87 @@ impl VerifierChannel {
 #[cfg(test)]
 mod tests {
     use super::*;
-    mod test_constants;
+    use crate::test_constants;
+    use test_utils::try_execute;
     use stylus_sdk::{
         alloy_primitives::hex,
     };
 
-    // #[motsu::test]
-    // fn test_init_channel() {
-    //     let mut ctx = test_constants::get_initial_ctx();
-    //     let channel_ptr = 1158; // 37056 in momory bytes / 32 bytes slot = 1158 index
-    //     let proof_ptr = U256::ZERO; // set to initial element of the proof
-    //     let public_input_hash = FixedBytes::<32>::new(hex!("0xd88ed8fb0839acf23f19b620f6a41ff00d7164ba987013d305cee03df15c23d6"));
-    //     VerifierChannel::init_channel(&mut ctx, channel_ptr, &public_input_hash);
+    #[motsu::test]
+    fn test_init_channel() {
+        let mut ctx = test_constants::get_initial_ctx();
+        let channel_ptr = 1158; // 37056 in momory bytes / 32 bytes slot = 1158 index
+        let proof_ptr = U256::ZERO; // set to initial element of the proof
+        let public_input_hash = FixedBytes::<32>::new(hex!("0xd88ed8fb0839acf23f19b620f6a41ff00d7164ba987013d305cee03df15c23d6"));
+        VerifierChannel::init_channel(&mut ctx, channel_ptr, &public_input_hash);
 
-    //     assert_eq!(ctx[channel_ptr], proof_ptr);
-    //     assert_eq!(ctx[VerifierChannel::get_prng_ptr(channel_ptr)], U256::from_be_slice(public_input_hash.as_slice()));
-    //     assert_eq!(ctx[VerifierChannel::get_prng_ptr(channel_ptr) + 1], U256::ZERO);
-    // }
+        assert_eq!(ctx[channel_ptr], proof_ptr);
+        assert_eq!(ctx[VerifierChannel::get_prng_ptr(channel_ptr)], U256::from_be_slice(public_input_hash.as_slice()));
+        assert_eq!(ctx[VerifierChannel::get_prng_ptr(channel_ptr) + 1], U256::ZERO);
+    }
 
-    // #[motsu::test]
-    // fn test_read_hash() {
-    //     let mut ctx = test_constants::get_initial_ctx();
-    //     let proof = test_constants::get_proof();
+    #[motsu::test]
+    fn test_read_hash() {
+        let mut ctx = test_constants::get_initial_ctx();
+        let proof = test_constants::get_proof();
 
-    //     let channel_ptr = 10; // channel pointer stored at index 10
-    //     let public_input_hash = FixedBytes::<32>::new(hex!("0xd88ed8fb0839acf23f19b620f6a41ff00d7164ba987013d305cee03df15c23d6"));
-    //     VerifierChannel::init_channel(&mut ctx, channel_ptr, &public_input_hash);
-    //     let hash = VerifierChannel::read_hash(&proof, &mut ctx, channel_ptr, true);
+        let channel_ptr = 10; // channel pointer stored at index 10
+        let public_input_hash = FixedBytes::<32>::new(hex!("0xd88ed8fb0839acf23f19b620f6a41ff00d7164ba987013d305cee03df15c23d6"));
+        VerifierChannel::init_channel(&mut ctx, channel_ptr, &public_input_hash);
+        let hash = VerifierChannel::read_hash(&proof, &mut ctx, channel_ptr, true);
 
-    //     assert_eq!(hash, FixedBytes::<32>::new(hex!("0xfac0468b20f41ae0141a3cb50b1a2a67a1edf14b000000000000000000000000")));
-    //     assert_eq!(ctx[channel_ptr + 1], uint!(FixedBytes::<32>::new(hex!("0xc7f98c4d0d908b93e8a4a09fae4349214b31a0695c51f731045ac6d3e6584591")).into()));
-    // }
+        assert_eq!(hash, uint!(0xfac0468b20f41ae0141a3cb50b1a2a67a1edf14b000000000000000000000000_U256));
+        assert_eq!(ctx[channel_ptr + 1], uint!(FixedBytes::<32>::new(hex!("0xc7f98c4d0d908b93e8a4a09fae4349214b31a0695c51f731045ac6d3e6584591")).into()));
+    }
 
-    // #[motsu::test]
-    // fn test_send_field_elements() {
-    //     let mut ctx = test_constants::get_initial_ctx();
-    //     let proof = test_constants::get_proof();
+    #[motsu::test]
+    fn test_send_field_elements() {
+        let mut ctx = test_constants::get_initial_ctx();
+        let proof = test_constants::get_proof();
 
-    //     let channel_ptr = 10; // channel pointer stored at index 10
-    //     let public_input_hash = FixedBytes::<32>::new(hex!("0xd88ed8fb0839acf23f19b620f6a41ff00d7164ba987013d305cee03df15c23d6"));
-    //     VerifierChannel::init_channel(&mut ctx, channel_ptr, &public_input_hash);
-    //     VerifierChannel::read_hash(&proof, &mut ctx, channel_ptr, true);
-    //     VerifierChannel::send_field_elements(&mut ctx, channel_ptr, 6, 352);
+        let channel_ptr = 10; // channel pointer stored at index 10
+        let public_input_hash = FixedBytes::<32>::new(hex!("0xd88ed8fb0839acf23f19b620f6a41ff00d7164ba987013d305cee03df15c23d6"));
+        VerifierChannel::init_channel(&mut ctx, channel_ptr, &public_input_hash);
+        VerifierChannel::read_hash(&proof, &mut ctx, channel_ptr, true);
+        try_execute!(VerifierChannel::send_field_elements(&mut ctx, channel_ptr, 6, 352));
 
-    //     assert_eq!(ctx[352 + 5], uint!(2761062090909355957053556856369845710198035091980059981525761706280755242673_U256));
-    //     assert_eq!(ctx[12], uint!(6_U256));
-    // }
+        assert_eq!(ctx[352 + 5], uint!(2761062090909355957053556856369845710198035091980059981525761706280755242673_U256));
+        assert_eq!(ctx[12], uint!(6_U256));
+    }
 
-    // #[motsu::test]
-    // fn test_read_field_element() {
-    //     let mut ctx = test_constants::get_ctx_read_field_element();
-    //     let proof = test_constants::get_proof();
+    #[motsu::test]
+    fn test_read_field_element() {
+        let mut ctx = test_constants::get_ctx_read_field_element();
+        let proof = test_constants::get_proof();
 
-    //     let channel_ptr = 10; // channel pointer stored at index 10
-    //     let field_element = VerifierChannel::read_field_element(&proof, &mut ctx, channel_ptr, true);
+        let channel_ptr = 10; // channel pointer stored at index 10
+        let field_element = VerifierChannel::read_field_element(&proof, &mut ctx, channel_ptr, true);
 
-    //     assert_eq!(field_element, uint!(2275741833758504896470175047018174931800329388283154351626181925085386637685_U256));
-    // }
+        assert_eq!(field_element, uint!(2275741833758504896470175047018174931800329388283154351626181925085386637685_U256));
+    }
 
-    // #[motsu::test]
-    // fn test_verify_proof_of_work() {
-    //     let proof = test_constants::get_proof();
-    //     let mut ctx = test_constants::get_ctx_verify_proof_of_work();
-    //     let channel_ptr = 10;
-    //     let proof_of_work_bits = U256::from(30);
-    //     let digest = VerifierChannel::verify_proof_of_work(&proof, &mut ctx, channel_ptr, proof_of_work_bits).unwrap();
+    #[motsu::test]
+    fn test_verify_proof_of_work() {
+        let proof = test_constants::get_proof();
+        let mut ctx = test_constants::get_ctx_verify_proof_of_work();
+        let channel_ptr = 10;
+        let proof_of_work_bits = U256::from(30);
+        let digest = try_execute!(VerifierChannel::verify_proof_of_work(&proof, &mut ctx, channel_ptr, proof_of_work_bits));
         
-    //     assert_eq!(digest, uint!(68701743034517859773582383053539537045812776708763242499428650007182_U256));
-    //     assert_eq!(ctx[channel_ptr + 1], uint!(0xf8b467ddd11de948f4bac33029ba1446e95dafb837e4fd7cc7e0e3a20501f39d_U256));
-    // }   
+        assert_eq!(digest, uint!(68701743034517859773582383053539537045812776708763242499428650007182_U256));
+        assert_eq!(ctx[channel_ptr + 1], uint!(0xf8b467ddd11de948f4bac33029ba1446e95dafb837e4fd7cc7e0e3a20501f39d_U256));
+    }   
 
-    // #[motsu::test]
-    // fn test_send_random_queries() {
-    //     let proof = test_constants::get_proof();
-    //     let mut ctx = test_constants::get_ctx_verify_proof_of_work();
-    //     let channel_ptr = 10;
-    //     let mask = ctx[0] - U256::from(1);
-    //     let proof_of_work_bits = U256::from(30);
-    //     VerifierChannel::verify_proof_of_work(&proof, &mut ctx, channel_ptr, proof_of_work_bits).unwrap();
-    //     let result = VerifierChannel::send_random_queries(&mut ctx, channel_ptr, 11, mask, U256::from(109), U256::from(3)).unwrap();
-    //     assert_eq!(result, U256::from(11));
-    // }
+    #[motsu::test]
+    fn test_send_random_queries() {
+        let proof = test_constants::get_proof();
+        let mut ctx = test_constants::get_ctx_verify_proof_of_work();
+        let channel_ptr = 10;
+        let mask = ctx[0] - U256::from(1);
+        let proof_of_work_bits = U256::from(30);
+        try_execute!(VerifierChannel::verify_proof_of_work(&proof, &mut ctx, channel_ptr, proof_of_work_bits));
+        let result = try_execute!(VerifierChannel::send_random_queries(&mut ctx, channel_ptr, 11, mask, U256::from(109), U256::from(3)));
+        assert_eq!(result, U256::from(11));
+    }
 }
 
