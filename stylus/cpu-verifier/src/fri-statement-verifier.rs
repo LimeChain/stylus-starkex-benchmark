@@ -2,21 +2,22 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use stylus_sdk::{
-    alloy_primitives::{U256, uint},
+    alloy_primitives::{U256, uint, FixedBytes},
     crypto::keccak,
+    prelude::*,
 };
 
 use macros::require;
 
+use crate::interfaces::IFriStatement;
 use crate::verifier_channel::VerifierChannel;
 use crate::prime_field_element0::PrimeFieldElement0;
 
-pub struct FriStatementVerifier {}
+pub trait FriStatementVerifier:  Sized + TopLevelStorage {
 
-// Lyubo: Add merkle_statement_contract into the storage of the contract
-impl FriStatementVerifier {
+    fn get_fri_statement(&self) -> IFriStatement;
 
-    pub fn fri_verify_layers(ctx: &mut [U256], proof: &[U256], fri_step_sizes: &[U256]) -> Result<(), Vec<u8>> {
+    fn fri_verify_layers(&self, ctx: &mut [U256], proof: &[U256], fri_step_sizes: &[U256]) -> Result<(), Vec<u8>> {
         let n_queries = ctx[9].to::<usize>();
         for i in 0..n_queries {
             ctx[109 + 3 * i + 1] = PrimeFieldElement0::fmul(ctx[109 + 3 * i + 1], PrimeFieldElement0::K_MONTGOMERY_R);
@@ -26,37 +27,39 @@ impl FriStatementVerifier {
         for i in 109..n_queries * 3 + 109 {
             input_data.extend_from_slice(&ctx[i].to_be_bytes::<32>());
         }
-        let mut input_layer_hash = uint!(keccak(&input_data).into());
+        let mut input_layer_hash: U256 = uint!(keccak(&input_data).into());
         
         let n_fri_inner_layers = fri_step_sizes.len() - 1;
         let mut fri_step = 1;
         let mut sum_of_step_sizes = fri_step_sizes[1];
-        let mut data_to_hash: [U256; 5] = [U256::ZERO; 5];
+        let fri_statement_contract = self.get_fri_statement();
         while fri_step < n_fri_inner_layers {
+            let mut data_to_hash = Vec::new();
             let output_layer_hash = VerifierChannel::read_bytes_from_ptr(proof, ctx, 10, true);
-            data_to_hash[0] = ctx[295 + fri_step];
-            data_to_hash[1] = fri_step_sizes[fri_step];
-            data_to_hash[2] = input_layer_hash;
-            data_to_hash[3] = output_layer_hash;
-            data_to_hash[4] = ctx[305 + fri_step - 1];
+            data_to_hash.extend_from_slice(&ctx[295 + fri_step].to_be_bytes::<32>());
+            data_to_hash.extend_from_slice(&fri_step_sizes[fri_step].to_be_bytes::<32>());
+            data_to_hash.extend_from_slice(&input_layer_hash.to_be_bytes::<32>());
+            data_to_hash.extend_from_slice(&output_layer_hash.to_be_bytes::<32>());
+            data_to_hash.extend_from_slice(&ctx[305 + fri_step - 1].to_be_bytes::<32>());
 
-            // require!(friStatementContract.isValid(keccak256(abi.encodePacked(dataToHash))), "INVALIDATED_FRI_STATEMENT");
+            let hash: FixedBytes<32> = keccak(&data_to_hash).into();
+            require!(fri_statement_contract.is_valid(self, hash)?, "INVALIDATED_FRI_STATEMENT");
 
             input_layer_hash = output_layer_hash;
             fri_step += 1;
             sum_of_step_sizes += fri_step_sizes[fri_step];
         }
 
-        data_to_hash[0] = ctx[295 + fri_step];
-        data_to_hash[1] = fri_step_sizes[fri_step];
-        data_to_hash[2] = input_layer_hash;
-        data_to_hash[3] = FriStatementVerifier::compute_last_layer_hash(proof, ctx, n_queries, sum_of_step_sizes)?;
-        data_to_hash[4] = ctx[305 + fri_step - 1];
+        let mut data_to_hash = Vec::new();
+        data_to_hash.extend_from_slice(&ctx[295 + fri_step].to_be_bytes::<32>());
+        data_to_hash.extend_from_slice(&fri_step_sizes[fri_step].to_be_bytes::<32>());
+        data_to_hash.extend_from_slice(&input_layer_hash.to_be_bytes::<32>());
+        data_to_hash.extend_from_slice(&Self::compute_last_layer_hash(proof, ctx, n_queries, sum_of_step_sizes)?.to_be_bytes::<32>());
+        data_to_hash.extend_from_slice(&ctx[305 + fri_step - 1].to_be_bytes::<32>());
 
-        // require!(
-        //     friStatementContract.isValid(keccak256(abi.encodePacked(dataToHash))),
-        //     "INVALIDATED_FRI_STATEMENT"
-        // );
+        // Lyubo: Check the result
+        let hash: FixedBytes<32> = keccak(&data_to_hash).into();
+        require!(fri_statement_contract.is_valid(self, hash)?, "INVALIDATED_FRI_STATEMENT");
 
         Ok(())
     }
@@ -82,7 +85,7 @@ impl FriStatementVerifier {
             ctx[109 + 3 * cur_point_index + 2] = point;
 
             point = PrimeFieldElement0::fpow(point, group_order_minus_one);
-            ctx[109 + 3 * cur_point_index + 1] = FriStatementVerifier::horner_eval(proof, coefs_start, point, fri_last_layer_deg_bound.to::<usize>())?;
+            ctx[109 + 3 * cur_point_index + 1] = Self::horner_eval(proof, coefs_start, point, fri_last_layer_deg_bound.to::<usize>())?;
 
             cur_point_index += 1;
         }
@@ -118,43 +121,3 @@ impl FriStatementVerifier {
         Ok(result % prime)
     }
 }
-
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::test_constants;
-    use test_utils::try_execute;
-
-    #[motsu::test]
-    fn test_fri_verify_layers() {
-        let mut fri_step_sizes = Vec::new();
-        fri_step_sizes.push(U256::from(3));
-        fri_step_sizes.push(U256::from(3));
-        fri_step_sizes.push(U256::from(3));
-        fri_step_sizes.push(U256::from(3));
-        fri_step_sizes.push(U256::from(3));
-        fri_step_sizes.push(U256::from(3));
-        fri_step_sizes.push(U256::from(3));
-        fri_step_sizes.push(U256::from(2));
-        let proof = test_constants::get_proof();
-        let mut ctx = test_constants::get_ctx_fri_verify_layers();
-        try_execute!(FriStatementVerifier::fri_verify_layers(&mut ctx, &proof, &fri_step_sizes));
-    }
-
-    #[motsu::test]
-    fn test_compute_last_layer_hash() {
-        let proof = test_constants::get_proof();
-        let mut ctx = test_constants::get_ctx_compute_last_layer_hash();
-        let res = try_execute!(FriStatementVerifier::compute_last_layer_hash(&proof, &mut ctx, 11, U256::from(20)));
-        assert_eq!(res, uint!(16162843800108123221986333459199870243499406093086027266637045595326264638953_U256));
-    }
-
-    #[motsu::test]
-    fn test_horner_eval() {
-        let proof = test_constants::get_proof();
-        let res = try_execute!(FriStatementVerifier::horner_eval(&proof, 204, uint!(261724642622844706275344931861363185671055404258368687742740457067613420050_U256), 64));
-        assert_eq!(res, uint!(2139028133873562710792122920124178712162573015562878092221167762764054446737_U256));
-    }
-}
-

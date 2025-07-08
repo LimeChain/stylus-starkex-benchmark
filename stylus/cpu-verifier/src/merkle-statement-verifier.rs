@@ -1,43 +1,22 @@
-#![cfg_attr(not(any(test, feature = "export-abi")), no_main)]
+// #![cfg_attr(not(any(test, feature = "export-abi")), no_main)]
 
 extern crate alloc;
 use alloc::vec::Vec;
 
-use alloy_sol_types::sol;
 use stylus_sdk::{
-    alloy_primitives::{FixedBytes, U256, uint, Address},
+    alloy_primitives::{FixedBytes, U256},
     crypto::keccak,
     prelude::*,
 };
 
 use macros::require;
-// use crate::interfaces::IMerkleStatement;
+use crate::interfaces::IMerkleStatement;
 
-sol_storage! {
-    #[entrypoint]
-    pub struct MerkleStatementVerifier {
-        address merkle_statement;
-    }
-}
+pub trait MerkleStatementVerifier: Sized + TopLevelStorage {
 
-sol_interface! {
-    interface IMerkleStatement {
-        function is_valid(bytes32 statement) external view returns(bool);
-    }
-}
+    fn get_merkle_statement(&self) -> IMerkleStatement;
 
-#[public]
-impl MerkleStatementVerifier {
-
-    #[constructor]
-    pub fn constructor(&mut self, merkle_statement_contract: Address) {
-        self.merkle_statement.set(merkle_statement_contract);
-    }
-}
-
-impl MerkleStatementVerifier {
-
-    pub fn verify_merkle(
+    fn verify_merkle(
         &self,
         ctx: &[U256],
         queue_ptr: usize,
@@ -53,9 +32,48 @@ impl MerkleStatementVerifier {
         }
         input_data.extend_from_slice(&root.as_slice());
 
-        let statement: U256 = uint!(keccak(&input_data).into());
-        let merkle_contract: IMerkleStatement =  IMerkleStatement { address: self.merkle_statement.get() };
-        require!(merkle_contract.is_valid(self, statement.into())?, "INVALIDATED_MERKLE_STATEMENT");
+        let statement: FixedBytes<32> = keccak(&input_data).into();
+        let merkle_contract: IMerkleStatement =  self.get_merkle_statement();
+        require!(merkle_contract.is_valid(self, statement)?, "INVALIDATED_MERKLE_STATEMENT");
         Ok(root)
     }
 }
+
+
+// sol_storage! {
+//     #[entrypoint]
+//     pub struct Test {
+//         address merkle_statement;
+//     }
+// }
+
+
+// impl MerkleStatementVerifier for Test {
+//     fn get_merkle_statement(&self) -> IMerkleStatement {
+//         IMerkleStatement { address: self.merkle_statement.get() }
+//     }
+// }
+
+// #[public]
+// impl Test {
+
+//     pub fn test(&self) {
+//         // self._test();
+//         let ctx = [U256::ZERO; 1277];
+//         let queue_ptr = 10;
+//         let root = FixedBytes::from([0; 32]);
+//         let n = 10;
+//         self.verify_merkle(&ctx, queue_ptr, root, n);
+//     }
+// }
+
+// impl Test {
+
+//     pub fn _test(&self) {
+//         let ctx = [U256::ZERO; 1277];
+//         let queue_ptr = 10;
+//         let root = FixedBytes::from([0; 32]);
+//         let n = 10;
+//         self.verify_merkle(&ctx, queue_ptr, root, n);
+//     }
+// }

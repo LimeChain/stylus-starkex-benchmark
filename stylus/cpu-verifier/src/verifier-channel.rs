@@ -13,12 +13,10 @@ pub struct VerifierChannel {}
 
 impl VerifierChannel {
 
-    #[inline]
     pub fn get_prng_ptr(channel_ptr: usize) -> usize {
         channel_ptr + 1 // return next index
     }
 
-    #[inline]
     pub fn get_random_bytes(ctx: &mut [U256], prng_ptr: usize) -> U256 {
         let mut input_data = Vec::new();
         input_data.extend_from_slice(&ctx[prng_ptr].to_be_bytes::<32>());
@@ -28,7 +26,6 @@ impl VerifierChannel {
         random_bytes
     }
 
-    #[inline]
     pub fn init_channel(
         ctx: &mut [U256],
         channel_ptr: usize,
@@ -41,12 +38,10 @@ impl VerifierChannel {
         ctx[prng_ptr + 1] = U256::ZERO;
     }
 
-    #[inline]
     pub fn read_hash(proof: &[U256], ctx: &mut [U256], channel_ptr: usize, mix: bool) -> U256 {
         VerifierChannel::read_bytes(proof, ctx, channel_ptr, mix)
     }
 
-    #[inline]
     pub fn read_bytes(proof: &[U256], ctx: &mut [U256], channel_ptr: usize, mix: bool) -> U256 {
         let proof_ptr = ctx[channel_ptr];
         let val = proof[proof_ptr.to::<usize>()];
@@ -94,8 +89,6 @@ impl VerifierChannel {
         }
     }
 
-    // Lyubo: Consider how to reuse the input_data vector
-    #[inline]
     pub fn send_field_elements(ctx: &mut [U256], channel_ptr: usize, n_elements: usize, target_ptr: usize) -> Result<(), Vec<u8>> {
         require!(
             n_elements < 16777216,
@@ -126,8 +119,6 @@ impl VerifierChannel {
         PrimeFieldElement0::from_montgomery(VerifierChannel::read_bytes(proof, ctx, channel_ptr, mix))
     }
 
-    // Lyubo: Optimise the vec allocations
-    #[inline]
     pub fn verify_proof_of_work(proof: &[U256], ctx: &mut [U256], channel_ptr: usize, proof_of_work_bits: U256) -> Result<U256, Vec<u8>> {
         if proof_of_work_bits == U256::ZERO {
             return Ok(U256::ZERO);
@@ -163,8 +154,6 @@ impl VerifierChannel {
         Ok(proof_of_work_digest)
     }
 
-    // Lyubo: Optimise index access
-    #[inline]
     pub fn send_random_queries(ctx: &mut [U256], channel_ptr: usize, count: usize, mask: U256, queries_out_ptr: U256, stride: U256) -> Result<U256, Vec<u8>> {
         require!(mask < U256::from(1) << U256::from(64), "mask must be < 2**64.");
 

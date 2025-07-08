@@ -1,4 +1,3 @@
-// Allow `cargo stylus export-abi` to generate a main function.
 #![cfg_attr(not(any(test, feature = "export-abi")), no_main)]
 #![cfg_attr(not(any(test, feature = "export-abi")), no_std)]
 
@@ -11,7 +10,7 @@ use stylus_sdk::alloy_primitives::{uint, Address, U256};
 use stylus_sdk::call::{static_call, Call};
 
 use stylus_sdk::stylus_core::calls::errors::Error;
-use stylus_sdk::{prelude::*, ArbResult};
+use stylus_sdk::{prelude::*};
 
 // debug imports
 const PRIME: U256 = uint!(0x800000000000011000000000000000000000000000000000000000000000001_U256);
@@ -25,8 +24,7 @@ sol_storage! {
 
 #[public]
 impl ConstraintPoly {
-    #[fallback]
-    fn compute(&mut self, _calldata: &[u8]) -> ArbResult {
+    pub fn compute(&mut self, _calldata: &[u8]) -> Result<Vec<U256>, Vec<u8>> {
         let poly_data: Vec<U256> = static_call(Call::new(), self.preparer_address.get(), _calldata)
             .unwrap()
             .chunks(32)

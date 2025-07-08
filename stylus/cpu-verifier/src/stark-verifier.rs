@@ -2,32 +2,30 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use stylus_sdk::{
-    alloy_primitives::{address, FixedBytes, U256, uint},
+    alloy_primitives::{FixedBytes, U256, uint},
     crypto::keccak,
-    call::{static_call, Call},
 };
 
 use macros::require;
 
+use crate::interfaces::ICpuOods;
+use crate::verifier_channel::VerifierChannel;
 use crate::prime_field_element0::PrimeFieldElement0;
 use crate::fri_statement_verifier::FriStatementVerifier;
 use crate::merkle_statement_verifier::MerkleStatementVerifier;
 
-use crate::verifier_channel::VerifierChannel;
+const PRIME_MINUS_ONE: U256 = uint!(0x800000000000011000000000000000000000000000000000000000000000000_U256);
+const COMMITMENT_MASK: U256 = uint!(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF000000000000000000000000_U256);
 
-pub struct StarkVerifier{}
+pub trait StarkVerifier : MerkleStatementVerifier + FriStatementVerifier {
 
-#[public]
-#[inherit(MerkleStatementVerifier)]
-impl StarkVerifier {
-    const PRIME_MINUS_ONE: U256 = uint!(0x800000000000011000000000000000000000000000000000000000000000000_U256);
-    const COMMITMENT_MASK: U256 = uint!(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF000000000000000000000000_U256);
-    
     fn air_specific_init(public_input: &[U256]) -> Result<(Vec<U256>, U256), Vec<u8>>;
 
     fn oods_consistency_check(&self, ctx: &mut [U256], public_input: &[U256]) -> Result<(), Vec<u8>>;
 
     fn get_public_input_hash(public_input: &[U256]) -> FixedBytes<32>;
+
+    fn get_oods_contract(&self) -> ICpuOods;
 
     fn verify_proof(
         &self,
@@ -35,7 +33,7 @@ impl StarkVerifier {
         proof: &mut [U256],
         public_input: &[U256],
     ) -> Result<(), Vec<u8>> {
-        let (mut ctx, fri_step_sizes) = Self::init_verifier_params(public_input, proof_params)?;
+        let (mut ctx, fri_step_sizes) = self.init_verifier_params(public_input, proof_params)?;
         let channel_ptr = 10;
 
         VerifierChannel::init_channel(
@@ -46,7 +44,7 @@ impl StarkVerifier {
 
         ctx[6] = VerifierChannel::read_hash(proof, &mut ctx, channel_ptr, true);
 
-        if self.has_interaction() {
+        if Self::has_interaction() {
             VerifierChannel::send_field_elements(&mut ctx, channel_ptr, 6, 352)?;
             ctx[7] = VerifierChannel::read_hash(proof, &mut ctx, channel_ptr, true);
         }
@@ -77,7 +75,7 @@ impl StarkVerifier {
 
         VerifierChannel::send_field_elements(&mut ctx, channel_ptr, 1, 295 + n_fri_steps - 1)?;
 
-        self.read_last_fri_layer(proof, &mut ctx)?;
+        Self::read_last_fri_layer(proof, &mut ctx)?;
 
         let proof_of_work_bits = ctx[3];
         VerifierChannel::verify_proof_of_work(proof, &mut ctx, 10, proof_of_work_bits)?;
@@ -87,11 +85,12 @@ impl StarkVerifier {
         ctx[9] = VerifierChannel::send_random_queries(&mut ctx, 10, count, queries_ptr, U256::from(109), U256::from(3))?;
 
         self.compute_first_fri_layer(proof, &mut ctx)?;
-        FriStatementVerifier::fri_verify_layers(&mut ctx, proof, &fri_step_sizes)?;
+        self.fri_verify_layers(&mut ctx, proof, &fri_step_sizes)?;
         Ok(())
     }
 
     fn init_verifier_params(
+        &self,
         public_input: &[U256],
         proof_params: &[U256],
     ) -> Result<(Vec<U256>, Vec<U256>), Vec<u8>> {
@@ -152,7 +151,6 @@ impl StarkVerifier {
         Ok((ctx, fri_step_sizes))
     }
 
-
     fn validate_fri_params(
         fri_step_sizes: &[U256],
         log_trace_length: U256,
@@ -173,12 +171,11 @@ impl StarkVerifier {
         Ok(())
     }
 
-    fn has_interaction(&self) -> bool {
+    fn has_interaction() -> bool {
         true // CPUVerifier returns always true(For the purpose of our work only)
     }
 
-    // Lyubo: Consider if stylus requires self in the function signature
-    fn read_last_fri_layer(&self, proof: &mut [U256], ctx: &mut [U256]) -> Result<(), Vec<u8>> {
+    fn read_last_fri_layer(proof: &mut [U256], ctx: &mut [U256]) -> Result<(), Vec<u8>> {
         let lmm_channel = 10;
         let fri_last_layer_deg_bound = ctx[315].to::<usize>();
         let mut bad_input = U256::ZERO;
@@ -187,7 +184,7 @@ impl StarkVerifier {
         let last_layer_ptr = ctx[channel_ptr].to::<usize>();
         let last_layer_end = last_layer_ptr + fri_last_layer_deg_bound;
         for i in last_layer_ptr..last_layer_end {
-            if proof[i] > Self::PRIME_MINUS_ONE {
+            if proof[i] > PRIME_MINUS_ONE {
                 bad_input |= U256::from(1);
             } else {
                 bad_input |= U256::ZERO;
@@ -219,23 +216,23 @@ impl StarkVerifier {
     }
 
     fn compute_first_fri_layer(&self, proof: &mut [U256], ctx: &mut [U256]) -> Result<(), Vec<u8>> {
-        self.adjust_query_indices_and_prepare_eval_points(ctx);
+        Self::adjust_query_indices_and_prepare_eval_points(ctx);
         self.read_query_responses_and_decommit(proof, ctx, 12, 9, 602, Self::u256_to_bytes(ctx[6]))?;
-        if self.has_interaction() {
+        if Self::has_interaction() {
             self.read_query_responses_and_decommit(proof, ctx, 12, 3, 611, Self::u256_to_bytes(ctx[7]))?;
         }
         self.read_query_responses_and_decommit(proof, ctx, 2, 2, 1178, Self::u256_to_bytes(ctx[8]))?;
 
-        // Lyubo: How to handler reverts? "?" sign?
-        // ctx[MM_FRI_QUEUE] = U256::from_be_slice(&static_call(
-        //     Call::new_in(self), 
-        //     oodsContractAddress,
-        //     &ctx
-        // ));
+        let oods_contract: ICpuOods =  self.get_oods_contract();
+        let oods_result = oods_contract.compute(self, ctx.to_vec())?;
+        for i in 0..oods_result.len() {
+            ctx[109 + i] = oods_result[i];
+        }
+        
         Ok(())
     }
 
-    fn adjust_query_indices_and_prepare_eval_points(&self, ctx: &mut [U256]) {
+    fn adjust_query_indices_and_prepare_eval_points(ctx: &mut [U256]) {
         let n_unique_queries = ctx[9].to::<usize>();
         let fri_queue = 109;
         let fri_queue_end = fri_queue + n_unique_queries * 3;
@@ -288,7 +285,7 @@ impl StarkVerifier {
             }
 
             let merkle_leaf_hash: U256 = keccak(&input_data).into();
-            let mut merkle_leaf = merkle_leaf_hash & Self::COMMITMENT_MASK;
+            let mut merkle_leaf = merkle_leaf_hash & COMMITMENT_MASK;
 
             if row_size == 32 {
                 merkle_leaf = Self::read_ptr(proof, proof_ptr, 8);
