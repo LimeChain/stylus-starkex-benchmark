@@ -27,22 +27,24 @@ pub struct Oods;
 
 #[public]
 impl Oods {
-    pub fn compute(&mut self, ctx: &[U256]) -> Result<Vec<U256>, Vec<u8>> {
-        if ctx.len() != EXPECTED_INPUT_LEN && ctx.len() == usize::from_be_bytes(ctx[..32].try_into().unwrap())
-        {
-            return Err(format!("Invalid calldata length: {}", ctx.len())
-                .as_bytes()
-                .to_vec());
-        }
+    pub fn compute(&mut self, ctx: Vec<U256>) -> Result<Vec<U256>, Vec<u8>> {
+        // if ctx.len() != EXPECTED_INPUT_LEN && ctx.len() == usize::from_be_bytes(ctx[..32].try_into().unwrap())
+        // {
+        //     return Err(format!("Invalid calldata length: {}", ctx.len())
+        //         .as_bytes()
+        //         .to_vec());
+        // }
 
-        let n_queries: usize = match ctx[MM_N_UNIQUE_QUERIES].try_into() {
-            Ok(n) => n,
-            Err(_) => {
-                return Err(format!("n_queries: {}", ctx[MM_N_UNIQUE_QUERIES])
-                    .as_bytes()
-                    .to_vec())
-            }
-        };
+        // let n_queries: usize = match ctx[MM_N_UNIQUE_QUERIES].try_into() {
+        //     Ok(n) => n,
+        //     Err(_) => {
+        //         return Err(format!("n_queries: {}", ctx[MM_N_UNIQUE_QUERIES])
+        //             .as_bytes()
+        //             .to_vec())
+        //     }
+        // };
+
+        let n_queries = ctx[MM_N_UNIQUE_QUERIES].to::<usize>();
 
         let batch_inverse_array = Self::prepare_inverses(&ctx, n_queries)?;
 

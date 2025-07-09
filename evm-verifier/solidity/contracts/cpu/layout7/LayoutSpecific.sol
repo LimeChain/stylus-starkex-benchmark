@@ -25,6 +25,7 @@ import "../CairoVerifierContract.sol";
 
 import {console} from "forge-std/console.sol";
 
+
 abstract contract LayoutSpecific is MemoryMap, StarkParameters, CpuPublicInputOffsets, CairoVerifierContract {
     IPeriodicColumn pedersenPointsX;
     IPeriodicColumn pedersenPointsY;

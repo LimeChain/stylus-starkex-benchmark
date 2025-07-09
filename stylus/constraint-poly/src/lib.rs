@@ -6,7 +6,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
-use stylus_sdk::alloy_primitives::{uint, Address, U256};
+use stylus_sdk::alloy_primitives::{uint, Address, U256, Bytes};
 use stylus_sdk::call::{static_call, Call};
 
 use stylus_sdk::stylus_core::calls::errors::Error;
@@ -24,8 +24,8 @@ sol_storage! {
 
 #[public]
 impl ConstraintPoly {
-    pub fn compute(&mut self, _calldata: &[u8]) -> Result<Vec<U256>, Vec<u8>> {
-        let poly_data: Vec<U256> = static_call(Call::new(), self.preparer_address.get(), _calldata)
+    pub fn compute(&mut self, _calldata: Vec<u8>) -> Result<U256, Vec<u8>> {
+        let poly_data: Vec<U256> = static_call(Call::new(), self.preparer_address.get(), &_calldata)
             .unwrap()
             .chunks(32)
             .map(U256::from_be_slice)
@@ -44,7 +44,7 @@ impl ConstraintPoly {
         )
         .unwrap();
 
-        Ok(result.to_be_bytes::<32>().to_vec())
+        Ok(result)
     }
 
     #[constructor]

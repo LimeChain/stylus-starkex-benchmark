@@ -25,7 +25,19 @@ tokio = { version = "1.12.0", features = ["full"] }
 ethers = "2.0"
 eyre = "0.6.8"
 motsu = "0.8.0"
+stylus-sdk = { version = "0.9.0", features = ["stylus-test"] }
 test-utils = { path = "../test-utils" }
+oods = { path = "../oods" }
+constraint-poly = { path = "../constraint-poly" }
+constraint-poly-preparer = { path = "../constraint-poly-preparer" }
+constraint-poly-finalizer = { path = "../constraint-poly-finalizer" }
+pedersen-hp-x-c = { path = "../pedersen-hp-x-c" }
+pedersen-hp-y-c = { path = "../pedersen-hp-y-c" }
+poseidon-frk-0-col = { path = "../poseidon-frk-0-col" }
+poseidon-frk-1-col = { path = "../poseidon-frk-1-col" }
+poseidon-frk-2-col = { path = "../poseidon-frk-2-col" }
+poseidon-prk-0-col = { path = "../poseidon-prk-0-col" }
+poseidon-prk-1-col = { path = "../poseidon-prk-1-col" }
 
 [features]
 default = ["mini-alloc"]

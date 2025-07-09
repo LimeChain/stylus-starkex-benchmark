@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0.
 pragma solidity ^0.6.12;
 
-import {console} from "forge-std/console.sol";
-
 import "./Prng.sol";
-
+import {console} from "forge-std/console.sol";
 /*
   Implements the communication channel from the verifier to the prover in the non-interactive case
   (See the BCS16 paper for more details).
@@ -36,7 +34,8 @@ contract VerifierChannel is Prng {
             // Skip 0x20 bytes length at the beginning of the proof.
             mstore(channelPtr, add(proofPtr, 0x20))
         }
-
+        console.logBytes32(publicInputHash);
+        console.log(uint256(publicInputHash));
         initPrng(getPrngPtr(channelPtr), publicInputHash);
     }
 
@@ -52,6 +51,7 @@ contract VerifierChannel is Prng {
         uint256 targetPtr
     ) internal pure {
         require(nElements < 0x1000000, "Overflow protection failed.");
+
         assembly {
             // 31 * PRIME.
             let BOUND := 0xf80000000000020f00000000000000000000000000000000000000000000001f
@@ -75,6 +75,7 @@ contract VerifierChannel is Prng {
                 } {
                     // keccak256(abi.encodePacked(digest, counter));
                     fieldElement := keccak256(digestPtr, 0x40)
+                    
                     // *counterPtr += 1;
                     mstore(counterPtr, add(mload(counterPtr), 1))
                 }

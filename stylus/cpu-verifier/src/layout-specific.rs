@@ -1,21 +1,21 @@
 use macros::require;
 use stylus_sdk::{
-    alloy_primitives::{U256, uint},
+    alloy_primitives::{U256, uint, Address},
     prelude::*,
 };
 
 use crate::interfaces::IConstraint;
 use crate::prime_field_element0::PrimeFieldElement0;
 
-pub trait LayoutSpecific: Sized + TopLevelStorage {
+pub trait LayoutSpecific: Sized + TopLevelStorage + stylus_sdk::prelude::HostAccess {
 
-    fn get_pedersen_points_x(&self) -> IConstraint;
-    fn get_pedersen_points_y(&self) -> IConstraint;
-    fn get_poseidon_poseidon_full_round_key0(&self) -> IConstraint;
-    fn get_poseidon_poseidon_full_round_key1(&self) -> IConstraint;
-    fn get_poseidon_poseidon_full_round_key2(&self) -> IConstraint;
-    fn get_poseidon_poseidon_partial_round_key0(&self) -> IConstraint;
-    fn get_poseidon_poseidon_partial_round_key1(&self) -> IConstraint;
+    fn get_pedersen_points_x(&self) -> Address;
+    fn get_pedersen_points_y(&self) -> Address;
+    fn get_poseidon_poseidon_full_round_key0(&self) -> Address;
+    fn get_poseidon_poseidon_full_round_key1(&self) -> Address;
+    fn get_poseidon_poseidon_full_round_key2(&self) -> Address;
+    fn get_poseidon_poseidon_partial_round_key0(&self) -> Address;
+    fn get_poseidon_poseidon_partial_round_key1(&self) -> Address;
 
     fn get_layout_info(&self) -> (U256, U256) {
         let public_memory_offset = U256::from(21);
@@ -92,7 +92,7 @@ pub trait LayoutSpecific: Sized + TopLevelStorage {
         Ok(numerator / denominator)
     }
 
-    fn prepare_for_oods_check(&self, ctx: &mut [U256]) -> Result<(), Vec<u8>> {
+    fn prepare_for_oods_check(&mut self, ctx: &mut [U256]) -> Result<(), Vec<u8>> {
         let pedersen_points_x = self.get_pedersen_points_x();
         let pedersen_points_y = self.get_pedersen_points_y();
         let poseidon_poseidon_full_round_key0 = self.get_poseidon_poseidon_full_round_key0();
@@ -104,10 +104,10 @@ pub trait LayoutSpecific: Sized + TopLevelStorage {
         let oods_point = ctx[351];
         let n_steps = U256::from(1) << ctx[1274];
         let n_pedersen_hash_copies = Self::safe_div(n_steps, U256::from(128))?;
-        
         let z_point_pow_pedersen = PrimeFieldElement0::fpow(oods_point, n_pedersen_hash_copies);
-        ctx[317] = pedersen_points_x.compute(self, z_point_pow_pedersen)?;
-        ctx[318] = pedersen_points_y.compute(self, z_point_pow_pedersen)?;
+        
+        ctx[317] = U256::from_be_slice(&self.vm().call(&self, pedersen_points_x, &z_point_pow_pedersen.to_be_bytes::<32>().to_vec())?);
+        ctx[318] = U256::from_be_slice(&self.vm().call(&self, pedersen_points_y, &z_point_pow_pedersen.to_be_bytes::<32>().to_vec())?);
 
         ctx[338] = ctx[355];
         ctx[341] = ctx[356];
@@ -117,11 +117,12 @@ pub trait LayoutSpecific: Sized + TopLevelStorage {
         let n_poseidon_hash_copies = Self::safe_div(U256::from(1) << ctx[1274], U256::from(8))?;
         let z_point_pow_poseidon = PrimeFieldElement0::fpow(oods_point, n_poseidon_hash_copies);
 
-        ctx[319] = poseidon_poseidon_full_round_key0.compute(self, z_point_pow_poseidon)?;
-        ctx[320] = poseidon_poseidon_full_round_key1.compute(self, z_point_pow_poseidon)?;
-        ctx[321] = poseidon_poseidon_full_round_key2.compute(self, z_point_pow_poseidon)?;
-        ctx[322] = poseidon_poseidon_partial_round_key0.compute(self, z_point_pow_poseidon)?;
-        ctx[333] = poseidon_poseidon_partial_round_key1.compute(self, z_point_pow_poseidon)?;
+        ctx[319] = U256::from_be_slice(&self.vm().call(&self, poseidon_poseidon_full_round_key0, &z_point_pow_poseidon.to_be_bytes::<32>().to_vec())?);
+        ctx[320] = U256::from_be_slice(&self.vm().call(&self, poseidon_poseidon_full_round_key1, &z_point_pow_poseidon.to_be_bytes::<32>().to_vec())?);
+        ctx[321] = U256::from_be_slice(&self.vm().call(&self, poseidon_poseidon_full_round_key2, &z_point_pow_poseidon.to_be_bytes::<32>().to_vec())?);
+        ctx[322] = U256::from_be_slice(&self.vm().call(&self, poseidon_poseidon_partial_round_key0, &z_point_pow_poseidon.to_be_bytes::<32>().to_vec())?);
+        ctx[323] = U256::from_be_slice(&self.vm().call(&self, poseidon_poseidon_partial_round_key1, &z_point_pow_poseidon.to_be_bytes::<32>().to_vec())?);
+        
         Ok(())
     }
 

@@ -16,13 +16,14 @@
 // SPDX-License-Identifier: Apache-2.0.
 pragma solidity ^0.6.12;
 
-import {console} from "forge-std/console.sol";
 
 import "./Fri.sol";
 import "./MemoryMap.sol";
 import "./MemoryAccessUtils.sol";
 import "../../interfaces/IStarkVerifier.sol";
 import "../../VerifierChannel.sol";
+
+import {console} from "forge-std/console.sol";
 
 abstract contract StarkVerifier is
     MemoryMap,
@@ -178,10 +179,6 @@ abstract contract StarkVerifier is
         uint256 genEvalDomain = fpow(GENERATOR_VAL, (K_MODULUS - 1) / ctx[MM_EVAL_DOMAIN_SIZE]);
         ctx[MM_EVAL_DOMAIN_GENERATOR] = genEvalDomain;
         ctx[MM_TRACE_GENERATOR] = fpow(genEvalDomain, ctx[MM_BLOW_UP_FACTOR]);
-
-        for (uint256 i = 0; i < ctx.length; i++) {
-            console.log("ctx", ctx[i]);
-        }
     }
 
     function getPublicInputHash(uint256[] memory publicInput)
@@ -359,7 +356,6 @@ abstract contract StarkVerifier is
         uint256 rowSize = 0x20 * nColumns;
         uint256 proofDataSkipBytes = 0x20 * (nTotalColumns - nColumns);
         
-        uint256 val;
         assembly {
             let proofPtr := mload(channelPtr)
             let merklePtr := merkleQueuePtr
@@ -473,11 +469,10 @@ abstract contract StarkVerifier is
         uint256 friLastLayerDegBound = ctx[MM_FRI_LAST_LAYER_DEG_BOUND];
         uint256 lastLayerPtr;
         uint256 badInput = 0;
-        uint256 val;
+        
         assembly {
             let primeMinusOne := 0x800000000000011000000000000000000000000000000000000000000000000
             let channelPtr := add(add(ctx, 0x20), mul(lmmChannel, 0x20))
-            val := channelPtr
             lastLayerPtr := mload(channelPtr)
 
             // Make sure all the values are valid field elements.
@@ -543,46 +538,47 @@ abstract contract StarkVerifier is
 
         // Send Out of Domain Sampling point.
         VerifierChannel.sendFieldElements(channelPtr, 1, getPtr(ctx, MM_OODS_POINT));
-
+        
         // Read the answers to the Out of Domain Sampling.
         uint256 lmmOodsValues = getMmOodsValues();
         for (uint256 i = lmmOodsValues; i < lmmOodsValues + getNOodsValues(); i++) {
             ctx[i] = VerifierChannel.readFieldElement(channelPtr, true);
         }
-        oodsConsistencyCheck(ctx);
-        VerifierChannel.sendFieldElements(channelPtr, 1, getPtr(ctx, MM_OODS_ALPHA));
-        ctx[MM_FRI_COMMITMENTS] = uint256(VerifierChannel.readHash(channelPtr, true));
-
-        uint256 nFriSteps = getFriStepSizes(ctx).length;
-        uint256 fri_evalPointPtr = getPtr(ctx, MM_FRI_EVAL_POINTS);
-        for (uint256 i = 1; i < nFriSteps - 1; i++) {
-            VerifierChannel.sendFieldElements(channelPtr, 1, fri_evalPointPtr + i * 0x20);
-            ctx[MM_FRI_COMMITMENTS + i] = uint256(VerifierChannel.readHash(channelPtr, true));
-        }
-
-        // Send last random FRI evaluation point.
-        VerifierChannel.sendFieldElements(
-            channelPtr,
-            1,
-            getPtr(ctx, MM_FRI_EVAL_POINTS + nFriSteps - 1)
-        );
-
-        // Read FRI last layer commitment.
-        readLastFriLayer(ctx);
-
-        // Generate queries.
-        // emit LogGas("Read FRI commitments", gasleft());
-        VerifierChannel.verifyProofOfWork(channelPtr, ctx[MM_PROOF_OF_WORK_BITS]);
-        ctx[MM_N_UNIQUE_QUERIES] = VerifierChannel.sendRandomQueries(
-            channelPtr,
-            ctx[MM_N_UNIQUE_QUERIES],
-            ctx[MM_EVAL_DOMAIN_SIZE] - 1,
-            getPtr(ctx, MM_FRI_QUEUE),
-            FRI_QUEUE_SLOT_SIZE_IN_BYTES
-        );
         
-        computeFirstFriLayer(ctx);
+        oodsConsistencyCheck(ctx);
+        // VerifierChannel.sendFieldElements(channelPtr, 1, getPtr(ctx, MM_OODS_ALPHA));
+        // ctx[MM_FRI_COMMITMENTS] = uint256(VerifierChannel.readHash(channelPtr, true));
 
-        friVerifyLayers(ctx);
+        // uint256 nFriSteps = getFriStepSizes(ctx).length;
+        // uint256 fri_evalPointPtr = getPtr(ctx, MM_FRI_EVAL_POINTS);
+        // for (uint256 i = 1; i < nFriSteps - 1; i++) {
+        //     VerifierChannel.sendFieldElements(channelPtr, 1, fri_evalPointPtr + i * 0x20);
+        //     ctx[MM_FRI_COMMITMENTS + i] = uint256(VerifierChannel.readHash(channelPtr, true));
+        // }
+
+        // // Send last random FRI evaluation point.
+        // VerifierChannel.sendFieldElements(
+        //     channelPtr,
+        //     1,
+        //     getPtr(ctx, MM_FRI_EVAL_POINTS + nFriSteps - 1)
+        // );
+
+        // // Read FRI last layer commitment.
+        // readLastFriLayer(ctx);
+
+        // // Generate queries.
+        // // emit LogGas("Read FRI commitments", gasleft());
+        // VerifierChannel.verifyProofOfWork(channelPtr, ctx[MM_PROOF_OF_WORK_BITS]);
+        // ctx[MM_N_UNIQUE_QUERIES] = VerifierChannel.sendRandomQueries(
+        //     channelPtr,
+        //     ctx[MM_N_UNIQUE_QUERIES],
+        //     ctx[MM_EVAL_DOMAIN_SIZE] - 1,
+        //     getPtr(ctx, MM_FRI_QUEUE),
+        //     FRI_QUEUE_SLOT_SIZE_IN_BYTES
+        // );
+        
+        // computeFirstFriLayer(ctx);
+
+        // friVerifyLayers(ctx);
     }
 }

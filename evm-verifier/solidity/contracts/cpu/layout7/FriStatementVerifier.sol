@@ -82,7 +82,6 @@ abstract contract FriStatementVerifier is
         assembly {
             lastLayerHash := keccak256(friQueue, mul(curPointIndex, 0x60))
         }
-        console.log(uint256(lastLayerHash));
     }
 
     /*

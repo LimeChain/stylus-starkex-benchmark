@@ -114,6 +114,6 @@ contract MerkleVerifier is IMerkleVerifier {
             mstore(channelPtr, proofPtr)
         }
         // emit LogBool(hash == root);
-        // require(hash == root, "INVALID_MERKLE_PROOF");
+        require(hash == root, "INVALID_MERKLE_PROOF");
     }
 }

@@ -19,6 +19,10 @@ pub mod merkle_statement_verifier;
 #[path = "tests/test_constants.rs"]
 pub mod test_constants;
 
+#[cfg(test)]
+#[path = "tests/mock_inputs.rs"]
+pub mod mock_inputs;
+
 mod interfaces;
 
 #[macro_use]
@@ -35,7 +39,7 @@ use crate::merkle_statement_verifier::MerkleStatementVerifier;
 use crate::interfaces::{IMerkleStatement, IFriStatement, ICpuOods, IConstraint, IConstraintPoly};
 
 use stylus_sdk::{
-    alloy_primitives::{FixedBytes, U256, uint},
+    alloy_primitives::{FixedBytes, U256, uint, Address},
     crypto::keccak,
     prelude::*,
 };
@@ -71,32 +75,32 @@ impl FriStatementVerifier for CpuVerifier {
 }
 
 impl LayoutSpecific for CpuVerifier {
-    fn get_pedersen_points_x(&self) -> IConstraint {
-        IConstraint { address: self.pedersen_points_x.get() }
+    fn get_pedersen_points_x(&self) -> Address {
+        self.pedersen_points_x.get()
     }
 
-    fn get_pedersen_points_y(&self) -> IConstraint {
-        IConstraint { address: self.pedersen_points_y.get() }
+    fn get_pedersen_points_y(&self) -> Address {
+        self.pedersen_points_y.get()
     }
 
-    fn get_poseidon_poseidon_full_round_key0(&self) -> IConstraint{
-        IConstraint { address: self.poseidon_poseidon_full_round_key0.get() }
+    fn get_poseidon_poseidon_full_round_key0(&self) -> Address{
+        self.poseidon_poseidon_full_round_key0.get()
     }
 
-    fn get_poseidon_poseidon_full_round_key1(&self) -> IConstraint{
-        IConstraint { address: self.poseidon_poseidon_full_round_key1.get() }
+    fn get_poseidon_poseidon_full_round_key1(&self) -> Address{
+        self.poseidon_poseidon_full_round_key1.get()
     }
 
-    fn get_poseidon_poseidon_full_round_key2(&self) -> IConstraint{
-        IConstraint { address: self.poseidon_poseidon_full_round_key2.get() }
+    fn get_poseidon_poseidon_full_round_key2(&self) -> Address{
+        self.poseidon_poseidon_full_round_key2.get()
     }
 
-    fn get_poseidon_poseidon_partial_round_key0(&self) -> IConstraint{
-        IConstraint { address: self.poseidon_poseidon_partial_round_key0.get() }
+    fn get_poseidon_poseidon_partial_round_key0(&self) -> Address{
+        self.poseidon_poseidon_partial_round_key0.get()
     }
 
-    fn get_poseidon_poseidon_partial_round_key1(&self) -> IConstraint{
-        IConstraint { address: self.poseidon_poseidon_partial_round_key1.get() }
+    fn get_poseidon_poseidon_partial_round_key1(&self) -> Address{
+        self.poseidon_poseidon_partial_round_key1.get()
     }
     
 }   
@@ -146,7 +150,7 @@ impl StarkVerifier for CpuVerifier {
         Ok((ctx, log_trace_length))
     }
 
-    fn oods_consistency_check(&self, ctx: &mut [U256], public_input: &[U256]) -> Result<(), Vec<u8>> {
+    fn oods_consistency_check(&mut self, ctx: &mut [U256], public_input: &[U256]) -> Result<(), Vec<u8>> {
         CpuVerifier::verify_memory_page_facts(ctx, public_input);
         ctx[331] = ctx[352];
         ctx[332] = ctx[353];
@@ -157,12 +161,13 @@ impl StarkVerifier for CpuVerifier {
 
         self.prepare_for_oods_check(ctx)?;
 
-        let constraint_poly_contract: IConstraintPoly =  IConstraintPoly { address: self.constraint_poly.get() };
         let mut calldata = Vec::new();
-        for i in 318..551 {
+        for i in 317..551 {
             calldata.extend_from_slice(&ctx[i].to_be_bytes::<32>());
         }
-        let composition_from_trace_value = constraint_poly_contract.compute(self, calldata.into())?;
+        
+        let constraint_poly_contract = self.constraint_poly.get();
+        let composition_from_trace_value = U256::from_be_slice(&self.vm().call(&self, constraint_poly_contract, &calldata)?);
         let claimed_composition = PrimeFieldElement0::fadd(ctx[551], PrimeFieldElement0::fmul(ctx[351], ctx[552]));
         require!(composition_from_trace_value == claimed_composition, "claimedComposition does not match trace");
         
@@ -171,8 +176,9 @@ impl StarkVerifier for CpuVerifier {
 
     fn get_public_input_hash(public_input: &[U256]) -> FixedBytes<32> {
         let n_pages = public_input[21].to::<usize>();
+        let offset_page_prod = PublicMemoryOffset::get_offset_page_prod(0, n_pages);
         let mut input_data = Vec::new();
-        for i in 1..n_pages {
+        for i in 0..offset_page_prod {
             input_data.extend_from_slice(&public_input[i].to_be_bytes::<32>());
         }
 
@@ -261,12 +267,35 @@ impl CpuVerifier {
 #[public]
 impl CpuVerifier {
 
+    pub fn init(
+        &mut self,
+        constraint_poly: Address,
+        pedersen_points_x: Address,
+        pedersen_points_y: Address,
+        poseidon_poseidon_full_round_key0: Address,
+        poseidon_poseidon_full_round_key1: Address,
+        poseidon_poseidon_full_round_key2: Address,
+        poseidon_poseidon_partial_round_key0: Address,
+        poseidon_poseidon_partial_round_key1: Address,
+        oods: Address,
+    ) {
+        self.constraint_poly.set(constraint_poly);
+        self.pedersen_points_x.set(pedersen_points_x);
+        self.pedersen_points_y.set(pedersen_points_y);
+        self.poseidon_poseidon_full_round_key0.set(poseidon_poseidon_full_round_key0);
+        self.poseidon_poseidon_full_round_key1.set(poseidon_poseidon_full_round_key1);
+        self.poseidon_poseidon_full_round_key2.set(poseidon_poseidon_full_round_key2);
+        self.poseidon_poseidon_partial_round_key0.set(poseidon_poseidon_partial_round_key0);
+        self.poseidon_poseidon_partial_round_key1.set(poseidon_poseidon_partial_round_key1);
+        self.oods.set(oods);
+    }
+
     pub fn verify_proof_external(
         &mut self,
         proof_params: Vec<U256>,
         mut proof: Vec<U256>,
         public_input: Vec<U256>,
-    ) -> Result<(), Vec<u8>> {
+    ) -> Result<Vec<U256>, Vec<u8>> {
         self.verify_proof(&proof_params, &mut proof, &public_input)
     }
 }
@@ -274,12 +303,96 @@ impl CpuVerifier {
 
 #[cfg(test)]
 mod tests {
-    // use super::*;
-    // use crate::test_constants;
-    // use test_utils::try_execute;
-    // use stylus_sdk::{
-    //     alloy_primitives::{U256, uint},
-    // };
+    use super::*;
+    use stylus_sdk::testing::*;
+    use crate::test_constants;
+    use crate::mock_inputs;
+    use test_utils::try_execute;
+    use stylus_sdk::{
+        alloy_primitives::{U256, uint},
+    };
+
+    use oods::Oods;
+    use constraint_poly::ConstraintPoly;
+    use constraint_poly_preparer::ConstraintPolyPreparer;
+    use constraint_poly_finalizer::ConstraintPolyFinalizer;
+
+    use pedersen_hp_x_c::PedersenHashPointsXColumn;
+    use pedersen_hp_y_c::PedersenHashPointsYColumn;
+    use poseidon_frk_0_col::PoseidonPoseidonFullRoundKey0Column;
+    use poseidon_frk_1_col::PoseidonPoseidonFullRoundKey1Column;
+    use poseidon_frk_2_col::PoseidonPoseidonFullRoundKey2Column;
+    use poseidon_prk_0_col::PoseidonPoseidonPartialRoundKey0Column;
+    use poseidon_prk_1_col::PoseidonPoseidonPartialRoundKey1Column;
+
+    #[motsu::test]
+    fn test_verify_proof_external() {
+        let vm = TestVM::default();
+        let cpu_constraint_poly = Address::from([1u8; 20]);
+        let pedersen_hash_points_x = Address::from([2u8; 20]);
+        let pedersen_hash_points_y = Address::from([3u8; 20]);
+        let poseidon_poseidon_full_round_key0 = Address::from([4u8; 20]);
+        let poseidon_poseidon_full_round_key1 = Address::from([5u8; 20]);
+        let poseidon_poseidon_full_round_key2 = Address::from([6u8; 20]);
+        let poseidon_poseidon_partial_round_key0 = Address::from([7u8; 20]);
+        let poseidon_poseidon_partial_round_key1 = Address::from([8u8; 20]);
+        let oods_contract = Address::from([9u8; 20]);
+
+        
+        let mut cpu_verifier = CpuVerifier::from(&vm);
+        cpu_verifier.init(
+            cpu_constraint_poly,
+            pedersen_hash_points_x,
+            pedersen_hash_points_y,
+            poseidon_poseidon_full_round_key0,
+            poseidon_poseidon_full_round_key1,
+            poseidon_poseidon_full_round_key2,
+            poseidon_poseidon_partial_round_key0,
+            poseidon_poseidon_partial_round_key1,
+            oods_contract
+        );
+
+        let proof = test_constants::get_proof();
+        let proof_params = test_constants::get_proof_params();
+        let public_input = test_constants::get_public_input();
+
+        
+        let data1   = uint!(2502371038239847331946845555940821891939660827069539886818086403686260021246_U256);
+        let data2   = uint!(513761785516736576210258345954495650460389361631034617172115002511570125974_U256);
+
+        let ok_ret_1 = uint!(2476435194882991550378205418214791165604712474576866766823810310226558062065_U256);
+        let ok_ret_2 = uint!(1444533035788560090889078696321009507857064390212204404518903797387225515076_U256);
+        let ok_ret_3 = uint!(1747952454919021766681010400995206390562374609324430906386085649753967957996_U256);
+        let ok_ret_4 = uint!(1664257228653772301912891197477956780973260593455413394763471271235501957228_U256);
+        let ok_ret_5 = uint!(1938976483485279484363264204509611131731729867572976629648616677903267220493_U256);
+        let ok_ret_6 = uint!(1499007735260395255086346814066654016187033964386904667040298584658325794077_U256);
+        let ok_ret_7 = uint!(2486570557154671379335084513491649861794821253711847039152551529444239535533_U256);
+
+        vm.mock_call(pedersen_hash_points_x, data1.to_be_bytes::<32>().to_vec(), Ok(ok_ret_1.to_be_bytes::<32>().to_vec()));
+        vm.mock_call(pedersen_hash_points_y, data1.to_be_bytes::<32>().to_vec(), Ok(ok_ret_2.to_be_bytes::<32>().to_vec()));
+        vm.mock_call(poseidon_poseidon_full_round_key0, data2.to_be_bytes::<32>().to_vec(), Ok(ok_ret_3.to_be_bytes::<32>().to_vec()));
+        vm.mock_call(poseidon_poseidon_full_round_key1, data2.to_be_bytes::<32>().to_vec(), Ok(ok_ret_4.to_be_bytes::<32>().to_vec()));
+        vm.mock_call(poseidon_poseidon_full_round_key2, data2.to_be_bytes::<32>().to_vec(), Ok(ok_ret_5.to_be_bytes::<32>().to_vec()));
+        vm.mock_call(poseidon_poseidon_partial_round_key0, data2.to_be_bytes::<32>().to_vec(), Ok(ok_ret_6.to_be_bytes::<32>().to_vec()));
+        vm.mock_call(poseidon_poseidon_partial_round_key1, data2.to_be_bytes::<32>().to_vec(), Ok(ok_ret_7.to_be_bytes::<32>().to_vec()));
+
+        let ok_ret_8 = uint!(418385936848047481955394383802376566758559844720385213367193474142660347628_U256);
+        let constraint_poly_input = mock_inputs::get_constraint_poly_input();
+        vm.mock_call(cpu_constraint_poly, constraint_poly_input, Ok(ok_ret_8.to_be_bytes::<32>().to_vec()));
+
+        let result = try_execute!(cpu_verifier.verify_proof_external(
+            proof_params,
+            proof,
+            public_input
+        ));
+
+
+        // let expected_result = test_constants::get_ctx_verify_proof_external();
+        // for i in 0..result.len() {
+        //     assert_eq!(result[i], expected_result[i]);
+        // }
+    }
+
 
     // #[motsu::test]
     // fn test_oods_consistency_check() {

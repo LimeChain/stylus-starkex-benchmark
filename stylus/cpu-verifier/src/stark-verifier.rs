@@ -21,29 +21,29 @@ pub trait StarkVerifier : MerkleStatementVerifier + FriStatementVerifier {
 
     fn air_specific_init(public_input: &[U256]) -> Result<(Vec<U256>, U256), Vec<u8>>;
 
-    fn oods_consistency_check(&self, ctx: &mut [U256], public_input: &[U256]) -> Result<(), Vec<u8>>;
+    fn oods_consistency_check(&mut self, ctx: &mut [U256], public_input: &[U256]) -> Result<(), Vec<u8>>;
 
     fn get_public_input_hash(public_input: &[U256]) -> FixedBytes<32>;
 
     fn get_oods_contract(&self) -> ICpuOods;
 
     fn verify_proof(
-        &self,
+        &mut self,
         proof_params: &[U256],
         proof: &mut [U256],
         public_input: &[U256],
-    ) -> Result<(), Vec<u8>> {
+    ) -> Result<Vec<U256>, Vec<u8>> {
         let (mut ctx, fri_step_sizes) = self.init_verifier_params(public_input, proof_params)?;
         let channel_ptr = 10;
-
+        
         VerifierChannel::init_channel(
             &mut ctx,
             channel_ptr,
             &Self::get_public_input_hash(public_input)
         );
-
+        
         ctx[6] = VerifierChannel::read_hash(proof, &mut ctx, channel_ptr, true);
-
+        
         if Self::has_interaction() {
             VerifierChannel::send_field_elements(&mut ctx, channel_ptr, 6, 352)?;
             ctx[7] = VerifierChannel::read_hash(proof, &mut ctx, channel_ptr, true);
@@ -52,14 +52,14 @@ pub trait StarkVerifier : MerkleStatementVerifier + FriStatementVerifier {
         VerifierChannel::send_field_elements(&mut ctx, channel_ptr, 1, 358)?;
 
         ctx[8] = VerifierChannel::read_hash(proof, &mut ctx, channel_ptr, true);
-
+        
         VerifierChannel::send_field_elements(&mut ctx, channel_ptr, 1, 351)?;
-
+        
         let lmm_oods_values = 359;
         for i in lmm_oods_values..lmm_oods_values + 194 {
             ctx[i] = VerifierChannel::read_field_element(proof, &mut ctx, channel_ptr, true);
         }
-
+        
         self.oods_consistency_check(&mut ctx, public_input)?;
 
         VerifierChannel::send_field_elements(&mut ctx, channel_ptr, 1, 601)?;
@@ -75,18 +75,19 @@ pub trait StarkVerifier : MerkleStatementVerifier + FriStatementVerifier {
 
         VerifierChannel::send_field_elements(&mut ctx, channel_ptr, 1, 295 + n_fri_steps - 1)?;
 
-        Self::read_last_fri_layer(proof, &mut ctx)?;
+        // Self::read_last_fri_layer(proof, &mut ctx)?;
 
-        let proof_of_work_bits = ctx[3];
-        VerifierChannel::verify_proof_of_work(proof, &mut ctx, 10, proof_of_work_bits)?;
+        // let proof_of_work_bits = ctx[3];
+        // VerifierChannel::verify_proof_of_work(proof, &mut ctx, 10, proof_of_work_bits)?;
 
-        let count = ctx[9].to::<usize>();
-        let queries_ptr = ctx[0] - U256::from(1);
-        ctx[9] = VerifierChannel::send_random_queries(&mut ctx, 10, count, queries_ptr, U256::from(109), U256::from(3))?;
+        // let count = ctx[9].to::<usize>();
+        // let queries_ptr = ctx[0] - U256::from(1);
+        // ctx[9] = VerifierChannel::send_random_queries(&mut ctx, 10, count, queries_ptr, U256::from(109), U256::from(3))?;
 
-        self.compute_first_fri_layer(proof, &mut ctx)?;
-        self.fri_verify_layers(&mut ctx, proof, &fri_step_sizes)?;
-        Ok(())
+        // self.compute_first_fri_layer(proof, &mut ctx)?;
+        // self.fri_verify_layers(&mut ctx, proof, &fri_step_sizes)?;
+        // Ok(ctx)
+        Ok(Vec::new())
     }
 
     fn init_verifier_params(

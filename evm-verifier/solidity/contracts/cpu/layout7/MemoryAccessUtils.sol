@@ -17,7 +17,6 @@
 pragma solidity ^0.6.12;
 
 import "./MemoryMap.sol";
-import {console} from "forge-std/console.sol";
 
 contract MemoryAccessUtils is MemoryMap {
     function getPtr(uint256[] memory ctx, uint256 offset) internal pure returns (uint256) {
