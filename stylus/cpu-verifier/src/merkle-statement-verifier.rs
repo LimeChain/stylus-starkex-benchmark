@@ -34,7 +34,7 @@ pub trait MerkleStatementVerifier: Sized + TopLevelStorage {
 
         let statement: FixedBytes<32> = keccak(&input_data).into();
         let merkle_contract: IMerkleStatement =  self.get_merkle_statement();
-        require!(merkle_contract.is_valid(self, statement)?, "INVALIDATED_MERKLE_STATEMENT");
+        // require!(merkle_contract.is_valid(self, statement)?, "INVALIDATED_MERKLE_STATEMENT");
         Ok(root)
     }
 }

@@ -14,11 +14,12 @@ alloy-sol-types = "=0.8.20"
 mini-alloc = "0.8.4"
 hex = "0.4.3"
 dotenv = "0.15.0"
+macros.workspace = true
 tiny-keccak = { version = "2.0.0", features = ["keccak"] }
 stylus-sdk = { version = "0.9.0", default-features = false, features = [
     "mini-alloc",
 ] }
-macros = { path = "../macros" }
+
 
 [dev-dependencies]
 tokio = { version = "1.12.0", features = ["full"] }
@@ -40,10 +41,8 @@ poseidon-prk-0-col = { path = "../poseidon-prk-0-col" }
 poseidon-prk-1-col = { path = "../poseidon-prk-1-col" }
 
 [features]
-default = ["mini-alloc"]
 export-abi = ["stylus-sdk/export-abi"]
 debug = ["stylus-sdk/debug"]
-mini-alloc = ["stylus-sdk/mini-alloc"]
 
 [[bin]]
 name = "cpu-verifier"
@@ -60,4 +59,4 @@ panic = "abort"
 
 # If you need to reduce the binary size, it is advisable to try other
 # optimization levels, such as "s" and "z"
-opt-level = 3
+opt-level = "z"

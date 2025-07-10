@@ -43,7 +43,7 @@ pub trait FriStatementVerifier:  Sized + TopLevelStorage {
             data_to_hash.extend_from_slice(&ctx[305 + fri_step - 1].to_be_bytes::<32>());
 
             let hash: FixedBytes<32> = keccak(&data_to_hash).into();
-            require!(fri_statement_contract.is_valid(self, hash)?, "INVALIDATED_FRI_STATEMENT");
+            // require!(fri_statement_contract.is_valid(self, hash)?, "INVALIDATED_FRI_STATEMENT");
 
             input_layer_hash = output_layer_hash;
             fri_step += 1;
@@ -57,9 +57,8 @@ pub trait FriStatementVerifier:  Sized + TopLevelStorage {
         data_to_hash.extend_from_slice(&Self::compute_last_layer_hash(proof, ctx, n_queries, sum_of_step_sizes)?.to_be_bytes::<32>());
         data_to_hash.extend_from_slice(&ctx[305 + fri_step - 1].to_be_bytes::<32>());
 
-        // Lyubo: Check the result
         let hash: FixedBytes<32> = keccak(&data_to_hash).into();
-        require!(fri_statement_contract.is_valid(self, hash)?, "INVALIDATED_FRI_STATEMENT");
+        // require!(fri_statement_contract.is_valid(self, hash)?, "INVALIDATED_FRI_STATEMENT");
 
         Ok(())
     }

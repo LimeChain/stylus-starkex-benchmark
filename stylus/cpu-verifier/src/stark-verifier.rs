@@ -2,8 +2,9 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use stylus_sdk::{
-    alloy_primitives::{FixedBytes, U256, uint},
+    alloy_primitives::{FixedBytes, U256, uint, Address},
     crypto::keccak,
+    prelude::*,
 };
 
 use macros::require;
@@ -17,7 +18,7 @@ use crate::merkle_statement_verifier::MerkleStatementVerifier;
 const PRIME_MINUS_ONE: U256 = uint!(0x800000000000011000000000000000000000000000000000000000000000000_U256);
 const COMMITMENT_MASK: U256 = uint!(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF000000000000000000000000_U256);
 
-pub trait StarkVerifier : MerkleStatementVerifier + FriStatementVerifier {
+pub trait StarkVerifier : MerkleStatementVerifier + FriStatementVerifier + HostAccess {
 
     fn air_specific_init(public_input: &[U256]) -> Result<(Vec<U256>, U256), Vec<u8>>;
 
@@ -25,7 +26,7 @@ pub trait StarkVerifier : MerkleStatementVerifier + FriStatementVerifier {
 
     fn get_public_input_hash(public_input: &[U256]) -> FixedBytes<32>;
 
-    fn get_oods_contract(&self) -> ICpuOods;
+    fn get_oods_contract(&self) -> Address;
 
     fn verify_proof(
         &mut self,
@@ -75,19 +76,19 @@ pub trait StarkVerifier : MerkleStatementVerifier + FriStatementVerifier {
 
         VerifierChannel::send_field_elements(&mut ctx, channel_ptr, 1, 295 + n_fri_steps - 1)?;
 
-        // Self::read_last_fri_layer(proof, &mut ctx)?;
+        Self::read_last_fri_layer(proof, &mut ctx)?;
 
-        // let proof_of_work_bits = ctx[3];
-        // VerifierChannel::verify_proof_of_work(proof, &mut ctx, 10, proof_of_work_bits)?;
+        let proof_of_work_bits = ctx[3];
+        VerifierChannel::verify_proof_of_work(proof, &mut ctx, 10, proof_of_work_bits)?;
 
-        // let count = ctx[9].to::<usize>();
-        // let queries_ptr = ctx[0] - U256::from(1);
-        // ctx[9] = VerifierChannel::send_random_queries(&mut ctx, 10, count, queries_ptr, U256::from(109), U256::from(3))?;
+        let count = ctx[9].to::<usize>();
+        let queries_ptr = ctx[0] - U256::from(1);
+        ctx[9] = VerifierChannel::send_random_queries(&mut ctx, 10, count, queries_ptr, U256::from(109), U256::from(3))?;
 
-        // self.compute_first_fri_layer(proof, &mut ctx)?;
-        // self.fri_verify_layers(&mut ctx, proof, &fri_step_sizes)?;
-        // Ok(ctx)
-        Ok(Vec::new())
+        self.compute_first_fri_layer(proof, &mut ctx)?;
+        self.fri_verify_layers(&mut ctx, proof, &fri_step_sizes)?;
+
+        Ok(ctx)
     }
 
     fn init_verifier_params(
@@ -216,7 +217,7 @@ pub trait StarkVerifier : MerkleStatementVerifier + FriStatementVerifier {
         FixedBytes(value_bytes)
     }
 
-    fn compute_first_fri_layer(&self, proof: &mut [U256], ctx: &mut [U256]) -> Result<(), Vec<u8>> {
+    fn compute_first_fri_layer(&mut self, proof: &mut [U256], ctx: &mut [U256]) -> Result<(), Vec<u8>> {
         Self::adjust_query_indices_and_prepare_eval_points(ctx);
         self.read_query_responses_and_decommit(proof, ctx, 12, 9, 602, Self::u256_to_bytes(ctx[6]))?;
         if Self::has_interaction() {
@@ -224,8 +225,9 @@ pub trait StarkVerifier : MerkleStatementVerifier + FriStatementVerifier {
         }
         self.read_query_responses_and_decommit(proof, ctx, 2, 2, 1178, Self::u256_to_bytes(ctx[8]))?;
 
-        let oods_contract: ICpuOods =  self.get_oods_contract();
-        let oods_result = oods_contract.compute(self, ctx.to_vec())?;
+        let oods_contract =  self.get_oods_contract();
+        let oods_bytes: Vec<u8> = ctx.iter().map(|x| x.to_be_bytes::<32>()).flatten().collect();
+        let oods_result: Vec<U256> = self.vm().call(&self, oods_contract, &oods_bytes)?.chunks(32).map(U256::from_be_slice).collect();
         for i in 0..oods_result.len() {
             ctx[109 + i] = oods_result[i];
         }

@@ -1,4 +1,4 @@
-#![cfg_attr(not(any(test, feature = "export-abi")), no_main)]
+#![cfg_attr(not(any(test)), no_main)]
 
 #[path = "stark-verifier.rs"]
 pub mod stark_verifier;
@@ -185,8 +185,8 @@ impl StarkVerifier for CpuVerifier {
         keccak(&input_data).into()
     }
 
-    fn get_oods_contract(&self) -> ICpuOods {
-        ICpuOods { address: self.oods.get() }
+    fn get_oods_contract(&self) -> Address {
+        self.oods.get()
     }
 }
 
@@ -267,6 +267,7 @@ impl CpuVerifier {
 #[public]
 impl CpuVerifier {
 
+    #[inline]
     pub fn init(
         &mut self,
         constraint_poly: Address,
@@ -290,6 +291,7 @@ impl CpuVerifier {
         self.oods.set(oods);
     }
 
+    #[inline]
     pub fn verify_proof_external(
         &mut self,
         proof_params: Vec<U256>,
@@ -360,25 +362,29 @@ mod tests {
         let data1   = uint!(2502371038239847331946845555940821891939660827069539886818086403686260021246_U256);
         let data2   = uint!(513761785516736576210258345954495650460389361631034617172115002511570125974_U256);
 
-        let ok_ret_1 = uint!(2476435194882991550378205418214791165604712474576866766823810310226558062065_U256);
-        let ok_ret_2 = uint!(1444533035788560090889078696321009507857064390212204404518903797387225515076_U256);
-        let ok_ret_3 = uint!(1747952454919021766681010400995206390562374609324430906386085649753967957996_U256);
-        let ok_ret_4 = uint!(1664257228653772301912891197477956780973260593455413394763471271235501957228_U256);
-        let ok_ret_5 = uint!(1938976483485279484363264204509611131731729867572976629648616677903267220493_U256);
-        let ok_ret_6 = uint!(1499007735260395255086346814066654016187033964386904667040298584658325794077_U256);
-        let ok_ret_7 = uint!(2486570557154671379335084513491649861794821253711847039152551529444239535533_U256);
+        let output_1 = uint!(2476435194882991550378205418214791165604712474576866766823810310226558062065_U256);
+        let output_2 = uint!(1444533035788560090889078696321009507857064390212204404518903797387225515076_U256);
+        let output_3 = uint!(1747952454919021766681010400995206390562374609324430906386085649753967957996_U256);
+        let output_4 = uint!(1664257228653772301912891197477956780973260593455413394763471271235501957228_U256);
+        let output_5 = uint!(1938976483485279484363264204509611131731729867572976629648616677903267220493_U256);
+        let output_6 = uint!(1499007735260395255086346814066654016187033964386904667040298584658325794077_U256);
+        let output_7 = uint!(2486570557154671379335084513491649861794821253711847039152551529444239535533_U256);
 
-        vm.mock_call(pedersen_hash_points_x, data1.to_be_bytes::<32>().to_vec(), Ok(ok_ret_1.to_be_bytes::<32>().to_vec()));
-        vm.mock_call(pedersen_hash_points_y, data1.to_be_bytes::<32>().to_vec(), Ok(ok_ret_2.to_be_bytes::<32>().to_vec()));
-        vm.mock_call(poseidon_poseidon_full_round_key0, data2.to_be_bytes::<32>().to_vec(), Ok(ok_ret_3.to_be_bytes::<32>().to_vec()));
-        vm.mock_call(poseidon_poseidon_full_round_key1, data2.to_be_bytes::<32>().to_vec(), Ok(ok_ret_4.to_be_bytes::<32>().to_vec()));
-        vm.mock_call(poseidon_poseidon_full_round_key2, data2.to_be_bytes::<32>().to_vec(), Ok(ok_ret_5.to_be_bytes::<32>().to_vec()));
-        vm.mock_call(poseidon_poseidon_partial_round_key0, data2.to_be_bytes::<32>().to_vec(), Ok(ok_ret_6.to_be_bytes::<32>().to_vec()));
-        vm.mock_call(poseidon_poseidon_partial_round_key1, data2.to_be_bytes::<32>().to_vec(), Ok(ok_ret_7.to_be_bytes::<32>().to_vec()));
+        vm.mock_call(pedersen_hash_points_x, data1.to_be_bytes::<32>().to_vec(), Ok(output_1.to_be_bytes::<32>().to_vec()));
+        vm.mock_call(pedersen_hash_points_y, data1.to_be_bytes::<32>().to_vec(), Ok(output_2.to_be_bytes::<32>().to_vec()));
+        vm.mock_call(poseidon_poseidon_full_round_key0, data2.to_be_bytes::<32>().to_vec(), Ok(output_3.to_be_bytes::<32>().to_vec()));
+        vm.mock_call(poseidon_poseidon_full_round_key1, data2.to_be_bytes::<32>().to_vec(), Ok(output_4.to_be_bytes::<32>().to_vec()));
+        vm.mock_call(poseidon_poseidon_full_round_key2, data2.to_be_bytes::<32>().to_vec(), Ok(output_5.to_be_bytes::<32>().to_vec()));
+        vm.mock_call(poseidon_poseidon_partial_round_key0, data2.to_be_bytes::<32>().to_vec(), Ok(output_6.to_be_bytes::<32>().to_vec()));
+        vm.mock_call(poseidon_poseidon_partial_round_key1, data2.to_be_bytes::<32>().to_vec(), Ok(output_7.to_be_bytes::<32>().to_vec()));
 
-        let ok_ret_8 = uint!(418385936848047481955394383802376566758559844720385213367193474142660347628_U256);
+        let output_8 = uint!(418385936848047481955394383802376566758559844720385213367193474142660347628_U256);
         let constraint_poly_input = mock_inputs::get_constraint_poly_input();
-        vm.mock_call(cpu_constraint_poly, constraint_poly_input, Ok(ok_ret_8.to_be_bytes::<32>().to_vec()));
+        vm.mock_call(cpu_constraint_poly, constraint_poly_input, Ok(output_8.to_be_bytes::<32>().to_vec()));
+
+        let oods_input = mock_inputs::get_oods_input();
+        let output_9 = mock_inputs::get_oods_output();
+        vm.mock_call(oods_contract, oods_input, Ok(output_9));
 
         let result = try_execute!(cpu_verifier.verify_proof_external(
             proof_params,
@@ -386,137 +392,10 @@ mod tests {
             public_input
         ));
 
-
-        // let expected_result = test_constants::get_ctx_verify_proof_external();
-        // for i in 0..result.len() {
-        //     assert_eq!(result[i], expected_result[i]);
-        // }
+        let expected_result = test_constants::get_ctx_verify_proof_external();
+        for i in 0..result.len() {
+            assert_eq!(result[i], expected_result[i]);
+        }
     }
-
-
-    // #[motsu::test]
-    // fn test_oods_consistency_check() {
-    //     // let mut proof = test_constants::get_proof();
-    //     // let mut ctx = test_constants::get_ctx_oods_consistency_check();
-    //     // let public_input = test_constants::get_public_input();
-    //     // Self::oods_consistency_check(&mut ctx, &public_input);
-    // }
-
-    // #[motsu::test]
-    // fn test_air_specific_init() {
-    //     let public_input = test_constants::get_public_input();
-    //     let (ctx, log_trace_length) = try_execute!(CpuVerifier::air_specific_init(&public_input));
-    //     let ctx_expected = test_constants::get_ctx_air_specific_init();
-
-    //     for i in 0..ctx.len() {
-    //         assert_eq!(ctx[i], ctx_expected[i]);
-    //     }
-    //     assert_eq!(log_trace_length, U256::from(26));
-    // }
-
-    // #[motsu::test]
-    // fn test_init_verifier_params() {
-    //     let public_input = test_constants::get_public_input();
-    //     let proof_params = test_constants::get_proof_params();
-    //     let (ctx, _) = try_execute!(CpuVerifier::init_verifier_params(&public_input, &proof_params));
-    //     let ctx_expected = test_constants::get_ctx_init_verifier_params();
-    //     for i in 0..ctx.len() {
-    //         assert_eq!(ctx[i], ctx_expected[i]);
-    //     }
-    // }
-
-    // #[motsu::test]
-    // fn test_read_last_fri_layer() {
-    //     let mut proof = test_constants::get_proof();
-    //     let mut ctx = test_constants::get_ctx_read_last_fri_layer();
-    //     try_execute!(CpuVerifier::read_last_fri_layer(&mut proof, &mut ctx));
-
-    //     assert_eq!(ctx[10], uint!(268_U256));
-    //     assert_eq!(ctx[11], uint!(101063039785234930674416911940782140361807536835453250352760633033315826439229_U256));
-    //     assert_eq!(ctx[316], uint!(204_U256));
-    // }
-
-    // // // Lyubo: Should fix this test
-    // // // #[motsu::test]
-    // // // fn test_compute_first_fri_layer() {
-    // // //     let mut proof = test_constants::get_proof();
-    // // //     let mut ctx = test_constants::get_ctx_compute_first_fri_layer();
-    // // //     CpuVerifier::compute_first_fri_layer(&mut proof, &mut ctx);
-    // // // }
-
-    // #[motsu::test]
-    // fn test_adjust_query_indices_and_prepare_eval_points() {
-    //     let mut ctx = test_constants::get_ctx_compute_first_fri_layer();
-    //     CpuVerifier::adjust_query_indices_and_prepare_eval_points(&mut ctx);
-    //     assert_eq!(ctx[553], uint!(3515892385904170702434114719646176958489529091479346127319408828731691841909_U256));
-    //     assert_eq!(ctx[109], uint!(4818245268_U256));
-    //     assert_eq!(ctx[139], uint!(8285752452_U256));
-    // }
-
-    // // Lyubo: Finish this test with asserts
-    // #[motsu::test]
-    // fn test_read_query_responses_and_decommit() {
-    //     let mut proof = test_constants::get_proof();
-    //     let mut ctx = test_constants::get_ctx_compute_first_fri_layer();
-    //     CpuVerifier::adjust_query_indices_and_prepare_eval_points(&mut ctx);
-
-    //     ctx[10] = U256::from(8584); // proof pointer
-    //     let merkle_root = CpuVerifier::u256_to_bytes(ctx[6]);
-    //     try_execute!(CpuVerifier::read_query_responses_and_decommit(&mut proof, &mut ctx, 12, 9, 602, merkle_root));
-    // }
-
-    // #[motsu::test]
-    // fn test_compute_diluted_cumulative_value() {
-    //     let ctx = test_constants::get_ctx_compute_diluted_cumulative_value();
-    //     let diluted_cumulative_value = CpuVerifier::compute_diluted_cumulative_value(&ctx);
-    //     assert_eq!(diluted_cumulative_value, uint!(1552215061468209516830163195514878071221879601444981698864155012436627340325_U256));
-    // }
-
-    // #[motsu::test]
-    // fn test_layout_specific_init() {
-    //     let mut ctx = test_constants::get_ctx_layout_specific_init();
-    //     let public_input = test_constants::get_public_input();
-    //     try_execute!(CpuVerifier::layout_specific_init(&mut ctx, &public_input));
-    //     assert_eq!(ctx[346], uint!(2392152_U256));
-    //     assert_eq!(ctx[344], uint!(2089986280348253421170679821480865132823066470938446095505822317253594081284_U256));
-    //     assert_eq!(ctx[345], uint!(1713931329540660377023406109199410414810705867260802078187082345529207694986_U256));
-    //     assert_eq!(ctx[347], uint!(2490456_U256));
-    //     assert_eq!(ctx[335], uint!(1_U256));
-    //     assert_eq!(ctx[348], uint!(3014744_U256));
-    //     assert_eq!(ctx[339], uint!(1_U256));
-    //     assert_eq!(ctx[340], uint!(0_U256));
-    //     assert_eq!(ctx[349], uint!(5636184_U256));
-    // }
-
-    // #[motsu::test]
-    // fn test_fri_verify_layers() {
-    //     let mut fri_step_sizes = Vec::new();
-    //     fri_step_sizes.push(U256::from(3));
-    //     fri_step_sizes.push(U256::from(3));
-    //     fri_step_sizes.push(U256::from(3));
-    //     fri_step_sizes.push(U256::from(3));
-    //     fri_step_sizes.push(U256::from(3));
-    //     fri_step_sizes.push(U256::from(3));
-    //     fri_step_sizes.push(U256::from(3));
-    //     fri_step_sizes.push(U256::from(2));
-    //     let proof = test_constants::get_proof();
-    //     let mut ctx = test_constants::get_ctx_fri_verify_layers();
-    //     try_execute!(CpuVerifier::fri_verify_layers(&mut ctx, &proof, &fri_step_sizes));
-    // }
-
-    // #[motsu::test]
-    // fn test_compute_last_layer_hash() {
-    //     let proof = test_constants::get_proof();
-    //     let mut ctx = test_constants::get_ctx_compute_last_layer_hash();
-    //     let res = try_execute!(CpuVerifier::compute_last_layer_hash(&proof, &mut ctx, 11, U256::from(20)));
-    //     assert_eq!(res, uint!(16162843800108123221986333459199870243499406093086027266637045595326264638953_U256));
-    // }
-
-    // #[motsu::test]
-    // fn test_horner_eval() {
-    //     let proof = test_constants::get_proof();
-    //     let res = try_execute!(CpuVerifier::horner_eval(&proof, 204, uint!(261724642622844706275344931861363185671055404258368687742740457067613420050_U256), 64));
-    //     assert_eq!(res, uint!(2139028133873562710792122920124178712162573015562878092221167762764054446737_U256));
-    // }
 
 }

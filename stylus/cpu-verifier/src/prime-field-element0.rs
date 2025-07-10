@@ -79,14 +79,14 @@ impl PrimeFieldElement0 {
 
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-//     #[motsu::test]
-//     fn test_bit_reverse() {
-//         let res = PrimeFieldElement0::bit_reverse(uint!(523277972_U256), 32);
-//         assert_eq!(res, uint!(694750456_U256));
-//     }
+    #[motsu::test]
+    fn test_bit_reverse() {
+        let res = PrimeFieldElement0::bit_reverse(uint!(523277972_U256), 32);
+        assert_eq!(res, uint!(694750456_U256));
+    }
 
-// }
+}

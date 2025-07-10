@@ -7,7 +7,7 @@ use stylus_sdk::{
 use crate::interfaces::IConstraint;
 use crate::prime_field_element0::PrimeFieldElement0;
 
-pub trait LayoutSpecific: Sized + TopLevelStorage + stylus_sdk::prelude::HostAccess {
+pub trait LayoutSpecific: Sized + TopLevelStorage + HostAccess {
 
     fn get_pedersen_points_x(&self) -> Address;
     fn get_pedersen_points_y(&self) -> Address;
