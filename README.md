@@ -7,6 +7,7 @@ This code repository aims to benchmark the gas costs between EVM and Stylus cont
 - Install [Docker].
 - Install toolchain providing `cargo` using [rustup].
 - Install the cargo stylus tool with `cargo install --force cargo-stylus`.
+- Optionally: setup Virtual TestNets on Tenderly following the [Quickstart guide](https://docs.tenderly.co/virtual-testnets/quickstart).
 
 Note: If you are using Linux and encounter the `linker 'cc' not found` error during
 stylus installation, make to sure to first install the necessary build tools with
