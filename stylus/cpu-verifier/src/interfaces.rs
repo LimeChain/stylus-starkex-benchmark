@@ -10,14 +10,22 @@ sol_interface! {
     }
 
     interface IConstraintPoly {
-        function compute(bytes memory calldata) external view returns(uint256);
+        function compute(uint256[] memory calldata) external view returns(uint256);
     }
 
-    interface ICpuOods {
-        function compute(uint256[] memory ctx) external view returns(uint256[] memory);
-    }
+    // interface ICpuOods {
+    //     function compute(uint256[] memory ctx) external view returns(uint256[] memory);
+    // }
 
     interface IConstraint {
         function compute(uint256 value) external view returns(uint256);
+    }
+
+    interface IInitVerifier {
+        function initVerifierParams(uint256[] memory public_input, uint256[] memory proof_params) external view returns(uint256[] memory ctx, uint256[] memory fri_step_sizes);
+    }
+
+    interface IFriStatementVerifier {
+        function verifyFri(uint256[] memory proof, uint256[] memory ctx, uint256[] memory fri_step_sizes) external view;
     }
 }

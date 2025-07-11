@@ -1,4 +1,4 @@
-#![cfg_attr(not(any(test)), no_main)]
+#![cfg_attr(not(any(test, feature = "export-abi")), no_std)]
 
 #[path = "stark-verifier.rs"]
 pub mod stark_verifier;
@@ -10,10 +10,10 @@ pub mod verifier_channel;
 pub mod prime_field_element0;
 #[path = "public-memory-offset.rs"]
 pub mod public_memory_offset;
-#[path = "fri-statement-verifier.rs"]
-pub mod fri_statement_verifier;
-#[path = "merkle-statement-verifier.rs"]
-pub mod merkle_statement_verifier;
+// #[path = "fri-statement-verifier.rs"]
+// pub mod fri_statement_verifier;
+// #[path = "merkle-statement-verifier.rs"]
+// pub mod merkle_statement_verifier;
 
 #[cfg(test)]
 #[path = "tests/test_constants.rs"]
@@ -34,9 +34,9 @@ use crate::stark_verifier::StarkVerifier;
 use crate::layout_specific::LayoutSpecific;
 use crate::public_memory_offset::PublicMemoryOffset;
 use crate::prime_field_element0::PrimeFieldElement0;
-use crate::fri_statement_verifier::FriStatementVerifier;
-use crate::merkle_statement_verifier::MerkleStatementVerifier;
-use crate::interfaces::{IMerkleStatement, IFriStatement, ICpuOods, IConstraint, IConstraintPoly};
+// use crate::fri_statement_verifier::FriStatementVerifier;
+// use crate::merkle_statement_verifier::MerkleStatementVerifier;
+use crate::interfaces::{IMerkleStatement, IFriStatement, IConstraint, IConstraintPoly, IInitVerifier, IFriStatementVerifier};
 
 use stylus_sdk::{
     alloy_primitives::{FixedBytes, U256, uint, Address},
@@ -59,96 +59,98 @@ sol_storage! {
         address poseidon_poseidon_full_round_key2;
         address poseidon_poseidon_partial_round_key0;
         address poseidon_poseidon_partial_round_key1;
+        address init_verifier;
+        address fri_statement_verifier;
     }
 }
 
-impl MerkleStatementVerifier for CpuVerifier {
-    fn get_merkle_statement(&self) -> IMerkleStatement {
-        IMerkleStatement { address: self.merkle_statement.get() }
-    }
-}
+// impl MerkleStatementVerifier for CpuVerifier {
+//     fn get_merkle_statement(&self) -> IMerkleStatement {
+//         IMerkleStatement { address: self.merkle_statement.get() }
+//     }
+// }
 
-impl FriStatementVerifier for CpuVerifier {
-    fn get_fri_statement(&self) -> IFriStatement {
-        IFriStatement { address: self.fri_statement.get() }
-    }
-}
+// impl FriStatementVerifier for CpuVerifier {
+//     fn get_fri_statement(&self) -> IFriStatement {
+//         IFriStatement { address: self.fri_statement.get() }
+//     }
+// }
 
 impl LayoutSpecific for CpuVerifier {
-    fn get_pedersen_points_x(&self) -> Address {
-        self.pedersen_points_x.get()
+    fn get_pedersen_points_x(&self) -> IConstraint {
+        IConstraint { address: self.pedersen_points_x.get() }
     }
 
-    fn get_pedersen_points_y(&self) -> Address {
-        self.pedersen_points_y.get()
+    fn get_pedersen_points_y(&self) -> IConstraint {
+        IConstraint { address: self.pedersen_points_y.get() }
     }
 
-    fn get_poseidon_poseidon_full_round_key0(&self) -> Address{
-        self.poseidon_poseidon_full_round_key0.get()
+    fn get_poseidon_poseidon_full_round_key0(&self) -> IConstraint {
+        IConstraint { address: self.poseidon_poseidon_full_round_key0.get() }
     }
 
-    fn get_poseidon_poseidon_full_round_key1(&self) -> Address{
-        self.poseidon_poseidon_full_round_key1.get()
+    fn get_poseidon_poseidon_full_round_key1(&self) -> IConstraint {
+        IConstraint { address: self.poseidon_poseidon_full_round_key1.get() }
     }
 
-    fn get_poseidon_poseidon_full_round_key2(&self) -> Address{
-        self.poseidon_poseidon_full_round_key2.get()
+    fn get_poseidon_poseidon_full_round_key2(&self) -> IConstraint {
+        IConstraint { address: self.poseidon_poseidon_full_round_key2.get() }
     }
 
-    fn get_poseidon_poseidon_partial_round_key0(&self) -> Address{
-        self.poseidon_poseidon_partial_round_key0.get()
+    fn get_poseidon_poseidon_partial_round_key0(&self) -> IConstraint {
+        IConstraint { address: self.poseidon_poseidon_partial_round_key0.get() }
     }
 
-    fn get_poseidon_poseidon_partial_round_key1(&self) -> Address{
-        self.poseidon_poseidon_partial_round_key1.get()
+    fn get_poseidon_poseidon_partial_round_key1(&self) -> IConstraint {
+        IConstraint { address: self.poseidon_poseidon_partial_round_key1.get() }
     }
     
 }   
 
 impl StarkVerifier for CpuVerifier {
-    fn air_specific_init(public_input: &[U256]) -> Result<(Vec<U256>, U256), Vec<u8>> {
-        // require!(public_input.len() >= 22, "publicInput is too short.");
-        let mut ctx = vec![U256::ZERO; 1277];
-        ctx[325] = U256::from(65536);
-        ctx[326] = U256::from(32768);
+    // fn air_specific_init(public_input: &[U256]) -> Result<(Vec<U256>, U256), Vec<u8>> {
+    //     // require!(public_input.len() >= 22, "publicInput is too short.");
+    //     let mut ctx = vec![U256::ZERO; 1277];
+    //     ctx[325] = U256::from(65536);
+    //     ctx[326] = U256::from(32768);
 
-        let log_n_steps = public_input[1];
-        // require!(log_n_steps < U256::from(50), "Number of steps is too large.");
-        ctx[1274] = log_n_steps;
-        let log_trace_length = log_n_steps + U256::from(4);
+    //     let log_n_steps = public_input[1];
+    //     // require!(log_n_steps < U256::from(50), "Number of steps is too large.");
+    //     ctx[1274] = log_n_steps;
+    //     let log_trace_length = log_n_steps + U256::from(4);
         
-        ctx[336] = public_input[2];
-        ctx[337] = public_input[3];
-        require!(ctx[336] <= ctx[337], "rc_min must be <= rc_max");
-        require!(ctx[337] < ctx[325], "rc_max out of range");
-        require!(public_input[4] == uint!(42800643258479064999893963318903811951182475189843316_U256), "Layout code mismatch.");
+    //     ctx[336] = public_input[2];
+    //     ctx[337] = public_input[3];
+    //     require!(ctx[336] <= ctx[337], "rc_min must be <= rc_max");
+    //     require!(ctx[337] < ctx[325], "rc_max out of range");
+    //     require!(public_input[4] == uint!(42800643258479064999893963318903811951182475189843316_U256), "Layout code mismatch.");
 
-        ctx[328] = public_input[5];
-        ctx[330] = public_input[6];
-        require!(ctx[328] == U256::from(1), "Invalid initial pc");
-        require!(ctx[330] == U256::from(5), "Invalid final pc");
+    //     ctx[328] = public_input[5];
+    //     ctx[330] = public_input[6];
+    //     require!(ctx[328] == U256::from(1), "Invalid initial pc");
+    //     require!(ctx[330] == U256::from(5), "Invalid final pc");
 
-        ctx[327] = public_input[7];
-        ctx[329] = public_input[8];
-        require!(public_input[21] >= U256::from(1) && public_input[21] < U256::from(100000), "Invalid number of memory pages.");
+    //     ctx[327] = public_input[7];
+    //     ctx[329] = public_input[8];
+    //     require!(public_input[21] >= U256::from(1) && public_input[21] < U256::from(100000), "Invalid number of memory pages.");
 
-        ctx[1276] = public_input[21];
+    //     ctx[1276] = public_input[21];
 
-        let mut n_public_memory_entries = U256::from(0);
-        for page in 0..ctx[1276].to::<usize>() {
-            let n_page_entries = public_input[PublicMemoryOffset::get_offset_page_size(page)];
-            require!(n_page_entries < U256::from(1073741824), "Too many public memory entries in one page.");
-            n_public_memory_entries += n_page_entries;
-        }
-        ctx[1275] = n_public_memory_entries;
+    //     let mut n_public_memory_entries = U256::from(0);
+    //     for page in 0..ctx[1276].to::<usize>() {
+    //         let n_page_entries = public_input[PublicMemoryOffset::get_offset_page_size(page)];
+    //         require!(n_page_entries < U256::from(1073741824), "Too many public memory entries in one page.");
+    //         n_public_memory_entries += n_page_entries;
+    //     }
+    //     ctx[1275] = n_public_memory_entries;
 
-        let expected_public_input_length = PublicMemoryOffset::get_public_input_length(ctx[1276].to::<usize>());
-        require!(expected_public_input_length == public_input.len(), "Public input length mismatch.");
+    //     let expected_public_input_length = PublicMemoryOffset::get_public_input_length(ctx[1276].to::<usize>());
+    //     require!(expected_public_input_length == public_input.len(), "Public input length mismatch.");
 
-        Self::layout_specific_init(&mut ctx, public_input)?;
+    //     Self::layout_specific_init(&mut ctx, public_input)?;
 
-        Ok((ctx, log_trace_length))
-    }
+    //     Ok((ctx, log_trace_length))
+    // }
 
     fn oods_consistency_check(&mut self, ctx: &mut [U256], public_input: &[U256]) -> Result<(), Vec<u8>> {
         CpuVerifier::verify_memory_page_facts(ctx, public_input);
@@ -161,15 +163,15 @@ impl StarkVerifier for CpuVerifier {
 
         self.prepare_for_oods_check(ctx)?;
 
-        let mut calldata = Vec::new();
-        for i in 317..551 {
-            calldata.extend_from_slice(&ctx[i].to_be_bytes::<32>());
-        }
+        // let mut calldata = Vec::new();
+        // for i in 317..551 {
+        //     calldata.push(ctx[i]);
+        // }
         
-        let constraint_poly_contract = self.constraint_poly.get();
-        let composition_from_trace_value = U256::from_be_slice(&self.vm().call(&self, constraint_poly_contract, &calldata)?);
+        let constraint_poly_contract: IConstraintPoly = IConstraintPoly { address: self.constraint_poly.get() };
+        let composition_from_trace_value = constraint_poly_contract.compute(&mut *self, ctx[317..551].to_vec())?;
         let claimed_composition = PrimeFieldElement0::fadd(ctx[551], PrimeFieldElement0::fmul(ctx[351], ctx[552]));
-        require!(composition_from_trace_value == claimed_composition, "claimedComposition does not match trace");
+        // require!(composition_from_trace_value == claimed_composition, "claimedComposition does not match trace");
         
         Ok(())
     }
@@ -185,8 +187,16 @@ impl StarkVerifier for CpuVerifier {
         keccak(&input_data).into()
     }
 
-    fn get_oods_contract(&self) -> Address {
-        self.oods.get()
+    // fn get_oods_contract(&self) -> Address {
+    //     self.oods.get()
+    // }
+
+    fn get_init_verifier(&self) -> IInitVerifier {
+        IInitVerifier { address: self.init_verifier.get() }
+    }
+
+    fn get_fri_statement_verifier(&self) -> IFriStatementVerifier {
+        IFriStatementVerifier { address: self.fri_statement_verifier.get() }
     }
 }
 
@@ -278,7 +288,8 @@ impl CpuVerifier {
         poseidon_poseidon_full_round_key2: Address,
         poseidon_poseidon_partial_round_key0: Address,
         poseidon_poseidon_partial_round_key1: Address,
-        oods: Address,
+        init_verifier: Address,
+        fri_statement_verifier: Address,
     ) {
         self.constraint_poly.set(constraint_poly);
         self.pedersen_points_x.set(pedersen_points_x);
@@ -288,7 +299,9 @@ impl CpuVerifier {
         self.poseidon_poseidon_full_round_key2.set(poseidon_poseidon_full_round_key2);
         self.poseidon_poseidon_partial_round_key0.set(poseidon_poseidon_partial_round_key0);
         self.poseidon_poseidon_partial_round_key1.set(poseidon_poseidon_partial_round_key1);
-        self.oods.set(oods);
+        self.init_verifier.set(init_verifier);
+        self.fri_statement_verifier.set(fri_statement_verifier);
+        // self.oods.set(oods);
     }
 
     #[inline]
@@ -297,7 +310,7 @@ impl CpuVerifier {
         proof_params: Vec<U256>,
         mut proof: Vec<U256>,
         public_input: Vec<U256>,
-    ) -> Result<Vec<U256>, Vec<u8>> {
+    ) -> Result<(), Vec<u8>> {
         self.verify_proof(&proof_params, &mut proof, &public_input)
     }
 }

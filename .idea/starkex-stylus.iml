@@ -23,6 +23,8 @@
       <sourceFolder url="file://$MODULE_DIR$/stylus/prime-field-element0/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/stylus/stark-verifier/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/stylus/verifier-channel/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/stylus/oods/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/stylus/test-utils/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/stylus/constraint-poly-finalizer/target" />
       <excludeFolder url="file://$MODULE_DIR$/stylus/constraint-poly-preparer/target" />
       <excludeFolder url="file://$MODULE_DIR$/stylus/constraint-poly/target" />
@@ -43,6 +45,8 @@
       <excludeFolder url="file://$MODULE_DIR$/stylus/prime-field-element0/target" />
       <excludeFolder url="file://$MODULE_DIR$/stylus/stark-verifier/target" />
       <excludeFolder url="file://$MODULE_DIR$/stylus/verifier-channel/target" />
+      <excludeFolder url="file://$MODULE_DIR$/stylus/oods/target" />
+      <excludeFolder url="file://$MODULE_DIR$/stylus/target" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

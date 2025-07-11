@@ -98,7 +98,6 @@ impl VerifierChannel {
 
         let digest_ptr = channel_ptr + 1;
         let counter_ptr = digest_ptr + 1;
-        let mut test = U256::ZERO;
         
         for i in 0..n_elements {
             let mut field_element = PrimeFieldElement0::BOUND;
@@ -109,7 +108,6 @@ impl VerifierChannel {
                 
                 field_element = uint!(keccak(&input_data).into());
                 ctx[counter_ptr] = ctx[counter_ptr] + U256::from(1);
-                test = ctx[counter_ptr];
             }
 
             ctx[target_ptr + i] = field_element.mul_mod(PrimeFieldElement0::K_MONTGOMERY_R_INV, PrimeFieldElement0::K_MODULUS);

@@ -20,6 +20,10 @@ solidity-deploy-mpfr:
 stylus-deploy-mpfr:
 	cd ./stylus/mpfr && cargo stylus deploy --private-key=$(pk)
 
+.PHONY: stylus-deploy-cpu-verifier
+stylus-deploy-cpu-verifier:
+	cd ./stylus/ && cargo stylus deploy --private-key=$(pk)
+
 .PHONY: nitro-test-mpfr
 nitro-test-mpfr:
 	forge test --match-contract MemoryPageFactRegistryTest \
@@ -158,3 +162,66 @@ constraint_poly_fin-test:
 		echo "Test failed: expected $$EXPECTED, got $$ACTUAL"; \
 		exit 1; \
 	fi
+
+
+
+
+
+poly_contract=0x65bfc2977e3f658e5f3f13d3e8786b620fc70797
+.PHONY: init_poly_contract
+init_poly_contract:
+	@cast send $(poly_contract) "setAddresses(address,address)" \
+	0x4b9bc2f775ae5ff13ddc3d511af451285c419f82 \
+	0x075c94df4e30274a3fd38b0d13ef501cc83542d6 \
+	--rpc-url $(rpc_url) --private-key $(pk) -vvv --gas-limit 2000000
+
+.PHONY: test_poly
+test_poly:
+	@cast send $(poly_contract) "compute(uint8[])" \
+	[1,2] \
+	--rpc-url $(rpc_url) --private-key $(pk) -vvv --gas-limit 2000000
+
+fri_contract=0xf5ffd11a55afd39377411ab9856474d2a7cb697e
+.PHONY: init_fri_contract
+init_fri_contract:
+	@cast send $(fri_contract) "init(address,address,address)" \
+	0xdb2d15a3eb70c347e0d2c2c7861cafb946baab48 \
+	0x0000000000000000000000000000000000000000 \
+	0x0000000000000000000000000000000000000000 \
+	--rpc-url $(rpc_url) --private-key $(pk) -vvv --gas-limit 2000000
+
+cpu_contract=0xf8e63c2598dff064ba05f1bc7fb94aeaeedf7df2
+.PHONY: init_cpu_contract
+init_cpu_contract:
+	@cast send $(cpu_contract) "init(address,address,address,address,address,address,address,address,address,address)" \
+	0x141f68377a1befdae5240660b49195bf07a8dbb5 \
+	0x3d76278b12ed405618ab335b64979a3c91445efa \
+	0xdb3f4ecb0298238a19ec5afd087c6d9df8041919 \
+	0x47cec0749bd110bc11f9577a70061202b1b6c034 \
+	0xce5303b8e8bfca9d1857976f300fb29928522c6f \
+	0xc2c0c3398915a2d2e9c33c186abfef3192ee25e8 \
+	0x1d55838a9ec169488d360783d65e6cd985007b72 \
+	0xd9bf5428c4a93aa2dedd0161f299071b9d1fec0a \
+	0xab03a15c0b1bfe992765280247b31a73489aa57b \
+	0xf5ffd11a55afd39377411ab9856474d2a7cb697e \
+	--rpc-url $(rpc_url) --private-key $(pk) -vvv --gas-limit 2000000
+
+PROOF_PARAMS := $(shell tr '\n' ' ' < ./inputs/proof_params.txt)
+PROOF := $(shell tr '\n' ' ' < ./inputs/proof.txt)
+PUBLIC_INPUT := $(shell tr '\n' ' ' < ./inputs/public_input.txt)
+
+.PHONY: verify_proof
+verify_proof:
+	@cast send $(cpu_contract) "verifyProofExternal(uint256[],uint256[],uint256[])" \
+	$(PROOF_PARAMS) \
+	$(PROOF) \
+	$(PUBLIC_INPUT) \
+	--rpc-url $(rpc_url) --private-key $(pk) -vvv --gas-limit 2000000
+
+init_verifier_params_contract=0xab03a15c0b1bfe992765280247b31a73489aa57b
+.PHONY: init_verifier_params
+init_verifier_params:
+	@cast send $(init_verifier_params_contract) "initVerifierParams(uint256[],uint256[])" \
+	$(PUBLIC_INPUT) \
+	$(PROOF_PARAMS) \
+	--rpc-url $(rpc_url) --private-key $(pk) -vvv --gas-limit 2000000

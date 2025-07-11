@@ -351,6 +351,7 @@ abstract contract StarkVerifier is
         uint256 nUniqueQueries = ctx[MM_N_UNIQUE_QUERIES];
         uint256 channelPtr = getPtr(ctx, MM_CHANNEL);
         uint256 friQueue = getPtr(ctx, MM_FRI_QUEUE);
+        
         uint256 friQueueEnd = friQueue + nUniqueQueries * FRI_QUEUE_SLOT_SIZE_IN_BYTES;
         uint256 merkleQueuePtr = getPtr(ctx, MM_MERKLE_QUEUE);
         uint256 rowSize = 0x20 * nColumns;
@@ -546,39 +547,45 @@ abstract contract StarkVerifier is
         }
         
         oodsConsistencyCheck(ctx);
-        // VerifierChannel.sendFieldElements(channelPtr, 1, getPtr(ctx, MM_OODS_ALPHA));
-        // ctx[MM_FRI_COMMITMENTS] = uint256(VerifierChannel.readHash(channelPtr, true));
+        VerifierChannel.sendFieldElements(channelPtr, 1, getPtr(ctx, MM_OODS_ALPHA));
+        ctx[MM_FRI_COMMITMENTS] = uint256(VerifierChannel.readHash(channelPtr, true));
 
-        // uint256 nFriSteps = getFriStepSizes(ctx).length;
-        // uint256 fri_evalPointPtr = getPtr(ctx, MM_FRI_EVAL_POINTS);
-        // for (uint256 i = 1; i < nFriSteps - 1; i++) {
-        //     VerifierChannel.sendFieldElements(channelPtr, 1, fri_evalPointPtr + i * 0x20);
-        //     ctx[MM_FRI_COMMITMENTS + i] = uint256(VerifierChannel.readHash(channelPtr, true));
-        // }
+        uint256 nFriSteps = getFriStepSizes(ctx).length;
+        uint256 fri_evalPointPtr = getPtr(ctx, MM_FRI_EVAL_POINTS);
+        for (uint256 i = 1; i < nFriSteps - 1; i++) {
+            VerifierChannel.sendFieldElements(channelPtr, 1, fri_evalPointPtr + i * 0x20);
+            ctx[MM_FRI_COMMITMENTS + i] = uint256(VerifierChannel.readHash(channelPtr, true));
+        }
 
-        // // Send last random FRI evaluation point.
-        // VerifierChannel.sendFieldElements(
-        //     channelPtr,
-        //     1,
-        //     getPtr(ctx, MM_FRI_EVAL_POINTS + nFriSteps - 1)
-        // );
+        // Send last random FRI evaluation point.
+        VerifierChannel.sendFieldElements(
+            channelPtr,
+            1,
+            getPtr(ctx, MM_FRI_EVAL_POINTS + nFriSteps - 1)
+        );
 
-        // // Read FRI last layer commitment.
-        // readLastFriLayer(ctx);
+        // Read FRI last layer commitment.
+        readLastFriLayer(ctx);
 
-        // // Generate queries.
-        // // emit LogGas("Read FRI commitments", gasleft());
-        // VerifierChannel.verifyProofOfWork(channelPtr, ctx[MM_PROOF_OF_WORK_BITS]);
-        // ctx[MM_N_UNIQUE_QUERIES] = VerifierChannel.sendRandomQueries(
-        //     channelPtr,
-        //     ctx[MM_N_UNIQUE_QUERIES],
-        //     ctx[MM_EVAL_DOMAIN_SIZE] - 1,
-        //     getPtr(ctx, MM_FRI_QUEUE),
-        //     FRI_QUEUE_SLOT_SIZE_IN_BYTES
-        // );
         
-        // computeFirstFriLayer(ctx);
 
-        // friVerifyLayers(ctx);
+        // Generate queries.
+        // emit LogGas("Read FRI commitments", gasleft());
+        VerifierChannel.verifyProofOfWork(channelPtr, ctx[MM_PROOF_OF_WORK_BITS]);
+        ctx[MM_N_UNIQUE_QUERIES] = VerifierChannel.sendRandomQueries(
+            channelPtr,
+            ctx[MM_N_UNIQUE_QUERIES],
+            ctx[MM_EVAL_DOMAIN_SIZE] - 1,
+            getPtr(ctx, MM_FRI_QUEUE),
+            FRI_QUEUE_SLOT_SIZE_IN_BYTES
+        );
+        
+        computeFirstFriLayer(ctx);
+        
+        friVerifyLayers(ctx);
+
+        for (uint256 i = 0; i < ctx.length; i++) {
+            console.log("ctx: ", ctx[i]);
+        }
     }
 }

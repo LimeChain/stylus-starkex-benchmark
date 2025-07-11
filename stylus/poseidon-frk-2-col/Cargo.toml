@@ -30,7 +30,7 @@ debug = ["stylus-sdk/debug"]
 mini-alloc = ["stylus-sdk/mini-alloc"]
 
 [[bin]]
-name = "poseidon-frk-0-col"
+name = "poseidon-frk-2-col"
 path = "src/main.rs"
 
 [lib]

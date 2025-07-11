@@ -81,12 +81,11 @@ impl ConstraintPolyFinalizer {
 
 #[public]
 impl ConstraintPolyFinalizer {
-    #[fallback]
+    #[inline]
     pub fn compute(
         &mut self,
-        _calldata: &[u8], // den_invs: Vec<U256>,
-    ) -> ArbResult {
-        let calldata_words: Vec<U256> = _calldata.chunks(32).map(U256::from_be_slice).collect();
+        calldata_words: Vec<U256>,
+    ) -> Result<U256, Vec<u8>> {
         let input: &[U256] = &calldata_words[..234];
         let composition_poly: &[U256] = &calldata_words[234..286];
         let domains: &[U256] = &calldata_words[286..];
@@ -1523,7 +1522,7 @@ impl ConstraintPolyFinalizer {
             .mul_mod(den_invs[14], PRIME);
             res = res.add_mod(val.mul_mod(alpha_pows[123], PRIME), PRIME);
         }
-        Ok(res.to_be_bytes::<32>().to_vec())
+        Ok(res)
     }
 }
 

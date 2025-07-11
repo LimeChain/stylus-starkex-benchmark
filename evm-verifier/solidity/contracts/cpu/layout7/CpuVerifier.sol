@@ -387,7 +387,7 @@ contract CpuVerifier is
             }
             compositionFromTraceValue := mload(p)
         }
-        console.log("compositionFromTraceValue", compositionFromTraceValue);
+        
         uint256 claimedComposition = fadd(
             ctx[MM_COMPOSITION_OODS_VALUES],
             fmul(ctx[MM_OODS_POINT], ctx[MM_COMPOSITION_OODS_VALUES + 1])
