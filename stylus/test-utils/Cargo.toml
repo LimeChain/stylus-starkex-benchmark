@@ -1,0 +1,26 @@
+[package]
+name = "test-utils"
+version = "0.1.11"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/OffchainLabs/stylus-hello-world"
+repository = "https://github.com/OffchainLabs/stylus-hello-world"
+keywords = ["arbitrum", "ethereum", "stylus", "alloy"]
+description = "Test Utils"
+
+[dependencies]
+stylus-sdk = { version = "0.9.0", default-features = false, features = [
+    "mini-alloc",
+] }
+
+# Motsu (持つ)  test config
+# stylus-sdk = { version = "0.8.4", default-features = false, features = [
+#     "mini-alloc",
+# ] }
+
+[[bin]]
+name = "test-utils"
+path = "src/main.rs"
+
+[lib]
+crate-type = ["lib", "cdylib"]

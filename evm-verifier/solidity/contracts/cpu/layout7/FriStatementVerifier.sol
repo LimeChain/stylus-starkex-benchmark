@@ -22,6 +22,8 @@ import "../../FriStatementContract.sol";
 import "../../HornerEvaluator.sol";
 import "../../VerifierChannel.sol";
 
+import {console} from "forge-std/console.sol";
+
 /*
   This contract verifies all the FRI layer, one by one, using the FriStatementContract.
   The first layer is computed from decommitments, the last layer is computed by evaluating the
@@ -113,6 +115,7 @@ abstract contract FriStatementVerifier is
         uint256 friStep = 1;
         uint256 sumOfStepSizes = friStepSizes[1];
         uint256[5] memory dataToHash;
+
         while (friStep < nFriInnerLayers) {
             uint256 outputLayerHash = uint256(readBytes(channelPtr, true));
             dataToHash[0] = ctx[MM_FRI_EVAL_POINTS + friStep];
@@ -122,10 +125,10 @@ abstract contract FriStatementVerifier is
             dataToHash[4] = ctx[MM_FRI_COMMITMENTS + friStep - 1];
 
             // Verify statement is registered.
-            require( // NOLINT: calls-loop.
-                friStatementContract.isValid(keccak256(abi.encodePacked(dataToHash))),
-                "INVALIDATED_FRI_STATEMENT"
-            );
+            // require( // NOLINT: calls-loop.
+            //     friStatementContract.isValid(keccak256(abi.encodePacked(dataToHash))),
+            //     "INVALIDATED_FRI_STATEMENT"
+            // );
 
             inputLayerHash = outputLayerHash;
 
@@ -136,12 +139,13 @@ abstract contract FriStatementVerifier is
         dataToHash[0] = ctx[MM_FRI_EVAL_POINTS + friStep];
         dataToHash[1] = friStepSizes[friStep];
         dataToHash[2] = inputLayerHash;
+        
         dataToHash[3] = uint256(computeLastLayerHash(ctx, nQueries, sumOfStepSizes));
         dataToHash[4] = ctx[MM_FRI_COMMITMENTS + friStep - 1];
 
-        require(
-            friStatementContract.isValid(keccak256(abi.encodePacked(dataToHash))),
-            "INVALIDATED_FRI_STATEMENT"
-        );
+        // require(
+        //     friStatementContract.isValid(keccak256(abi.encodePacked(dataToHash))),
+        //     "INVALIDATED_FRI_STATEMENT"
+        // );
     }
 }

@@ -17,14 +17,7 @@ use stylus_sdk::{
     prelude::*,
 };
 
-// Lyubo: Reuse the macros from the cpu verifier
-macro_rules! require {
-    ($cond:expr, $msg:expr) => {
-        if !$cond {
-            return Err($msg.to_vec());
-        }
-    };
-}
+use utils::require;
 
 pub trait MemoryPageFactRegistryConstants {
     const REGULAR_PAGE: [u8; 32] = U256::from_limbs([0, 0, 0, 0]).to_be_bytes();
@@ -92,14 +85,14 @@ impl MemoryPageFactRegistry {
     ) -> Result<(FixedBytes<32>, FixedBytes<32>, U256), Vec<u8>> {
         require!(
             memory_pairs.len() < 2usize.pow(20),
-            b"Too many memory values."
+            "Too many memory values."
         );
         require!(
             memory_pairs.len() % 2 == 0,
-            b"Size of memoryPairs must be even."
+            "Size of memoryPairs must be even."
         );
-        require!(z < prime, b"Invalid value of z.");
-        require!(alpha < prime, b"Invalid value of alpha.");
+        require!(z < prime, "Invalid value of z.");
+        require!(alpha < prime, "Invalid value of alpha.");
 
         let (fact_hash, memory_hash, prod) =
             Self::compute_fact_hash(&memory_pairs, z, alpha, prime);

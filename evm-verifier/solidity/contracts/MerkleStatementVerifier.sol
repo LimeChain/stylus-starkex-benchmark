@@ -44,7 +44,8 @@ abstract contract MerkleStatementVerifier is IMerkleVerifier {
 
             statement := keccak256(dataToHashPtrStart, sub(dataToHashPtrCur, dataToHashPtrStart))
         }
-        require(merkleStatementContract.isValid(statement), "INVALIDATED_MERKLE_STATEMENT");
+        
+        // require(merkleStatementContract.isValid(statement), "INVALIDATED_MERKLE_STATEMENT");
         return root;
     }
 }

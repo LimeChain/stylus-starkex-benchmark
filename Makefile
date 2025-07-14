@@ -20,6 +20,10 @@ solidity-deploy-mpfr:
 stylus-deploy-mpfr:
 	cd ./stylus/mpfr && cargo stylus deploy --private-key=$(pk)
 
+.PHONY: stylus-deploy-cpu-verifier
+stylus-deploy-cpu-verifier:
+	cd ./stylus/ && cargo stylus deploy --private-key=$(pk)
+
 .PHONY: nitro-test-mpfr
 nitro-test-mpfr:
 	forge test --match-contract MemoryPageFactRegistryTest \
@@ -163,6 +167,56 @@ constraint_poly_fin-test:
 		echo "Test failed: expected $$EXPECTED, got $$ACTUAL"; \
 		exit 1; \
 	fi
+
+poly_contract=0xfffb0ed9d6538e4b01cc0291814eaa4f2cc58254
+.PHONY: init_poly_contract
+init_poly_contract:
+	@cast send $(poly_contract) "setAddresses(address,address)" \
+	0xe2b648b8e4bfa271f327e6c6c71fbbdf5a2395d4 \
+	0xa11df8dbba014facc83cdeb9b4b6a98796254007 \
+	--rpc-url $(rpc_url) --private-key $(pk) -vvv --gas-limit 2000000
+
+fri_contract=0xacd8c4dc161bef1cde93c14861589b35f5000a19
+.PHONY: init_fri_contract
+init_fri_contract:
+	@cast send $(fri_contract) "init(address,address,address)" \
+	0x6d27fb544ddd3647443e997a21f0fe1dfcde3057 \
+	0x0000000000000000000000000000000000000000 \
+	0x0000000000000000000000000000000000000000 \
+	--rpc-url $(rpc_url) --private-key $(pk) -vvv --gas-limit 2000000
+
+cpu_contract=0xf1fede8133b032a1ebd78e107d510faec3e51365
+.PHONY: init_cpu_contract
+init_cpu_contract:
+	@cast send $(cpu_contract) "init(address,address,address,address,address,address,address,address,address,address)" \
+	0xfffb0ed9d6538e4b01cc0291814eaa4f2cc58254 \
+    0xd48eb52a301a3f72c81ab126056cf204b3bd2b0c \
+    0x6ba2c7e189daebe5b596d5b76b4d43f7b38d9de5 \
+    0x3b5b80304dfda6ba079161acfad648959c8745dd \
+    0x32c0013bdbbe645a85dd8bcc431d1b672bf0cfa1 \
+    0xa6788c256e8a1d2470df159a8b74ab86507aac10 \
+    0x801abd1cb75fefd0057943ba99ee83775c522831 \
+    0x07e2a25d805edf05f449d35fd1c846e8b1b4a140 \
+    0xfb493c75b7c2e2dca54f1c0f53ecf057b1de4e4a \
+    0xacd8c4dc161bef1cde93c14861589b35f5000a19 \
+	--rpc-url $(rpc_url) --private-key $(pk) -vvv
+
+PROOF_PARAMS := $(shell tr '\n' ' ' < ./inputs/proof_params.txt)
+PROOF := $(shell tr '\n' ' ' < ./inputs/proof.txt)
+PUBLIC_INPUT := $(shell tr '\n' ' ' < ./inputs/public_input.txt)
+
+.PHONY: verify_proof
+verify_proof:
+	@cast send $(cpu_contract) "verifyProofExternal(uint256[],uint256[],uint256[])" \
+	$(PROOF_PARAMS) \
+	$(PROOF) \
+	$(PUBLIC_INPUT) \
+	--rpc-url $(rpc_url) --private-key $(pk) -vvv --gas-limit 20000000
+
+
+.PHONY: test
+test:
+	cd ./test && bash ./test.sh
 
 # 0xd9bF5428C4a93aA2DEdd0161F299071b9D1FEc0a
 # oods_contract=0x5FbDB2315678afecb367f032d93F642f64180aa3

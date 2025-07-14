@@ -63,9 +63,11 @@ contract MemoryAccessUtils is MemoryMap {
         pure
         returns (uint256[] memory friStepSizes)
     {
+        uint256 val;
         uint256 friStepSizesPtr = getPtr(ctx, MM_FRI_STEP_SIZES_PTR);
         assembly {
             friStepSizes := mload(friStepSizesPtr)
+            val := mload(friStepSizesPtr)
         }
     }
 }

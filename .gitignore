@@ -3,3 +3,4 @@ broadcast
 cache
 out
 lib/forge-std
+Cargo.lock

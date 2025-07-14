@@ -8,66 +8,60 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
-use stylus_sdk::alloy_primitives::{address, hex, uint, Address, U256};
-use stylus_sdk::call::{static_call, Call};
+use stylus_sdk::alloy_primitives::{uint, U256};
 use stylus_sdk::stylus_core::calls::errors::Error;
-use stylus_sdk::{prelude::*, ArbResult};
+use stylus_sdk::{prelude::*};
 
 const PRIME: U256 = uint!(0x800000000000011000000000000000000000000000000000000000000000001_U256);
 const TRACE_LEN_IDX: usize = 7;
 const TRACE_GENERATOR_IDX: usize = 33;
 const OODS_POINT_IDX: usize = 34;
-const EXPECTED_INPUT_LEN: usize = 0x1d40; // 7488 bytes
 #[storage]
 #[entrypoint]
 pub struct ConstraintPolyPreparer;
 
 #[public]
 impl ConstraintPolyPreparer {
-    #[fallback]
-    fn compute(&mut self, _calldata: &[u8]) -> ArbResult {
-        if _calldata.len() != EXPECTED_INPUT_LEN {
-            return Err(format!("Invalid calldata length: {}", _calldata.len())
-                .as_bytes()
-                .to_vec());
-        }
-        let calldata_words: Vec<U256> = _calldata.chunks(32).map(U256::from_be_slice).collect();
+    #[inline]
+    fn compute(&mut self, calldata_words: Vec<U256>) -> Result<Vec<U256>, Vec<u8>> {
+        // if calldata_words.len() != EXPECTED_INPUT_LEN {
+        //     return Err(format!("Invalid calldata length: {}", calldata_words.len())
+        //         .as_bytes()
+        //         .to_vec());
+        // }
         let trace_len = calldata_words[TRACE_LEN_IDX];
         let trace_generator = calldata_words[TRACE_GENERATOR_IDX];
         let point = calldata_words[OODS_POINT_IDX];
 
-        let composition_poly = match ConstraintPolyPreparer::composition_polynomial(&calldata_words)
-        {
-            Ok(composition_poly) => composition_poly,
-            Err(e) => {
-                return Err(format!("Error computing composition polynomial: {:?}", e)
-                    .as_bytes()
-                    .to_vec());
-            }
-        };
+        let composition_poly = ConstraintPolyPreparer::composition_polynomial(&calldata_words)?;
+        // {
+        //     Ok(composition_poly) => composition_poly,
+        //     Err(e) => {
+        //         return Err(format!("Error computing composition polynomial: {:?}", e)
+        //             .as_bytes()
+        //             .to_vec());
+        //     }
+        // };
 
-        let expmods = match Self::expmods(trace_len, point, trace_generator) {
-            Ok(expmods) => expmods,
-            Err(e) => {
-                return Err(format!("Error making expmods: {:?}", e).as_bytes().to_vec());
-            }
-        };
+        let expmods =  Self::expmods(trace_len, point, trace_generator)?;
+        //  {
+        //     Ok(expmods) => expmods,
+        //     Err(e) => {
+        //         return Err(format!("Error making expmods: {:?}", e).as_bytes().to_vec());
+        //     }
+        // };
 
-        let domains = match ConstraintPolyPreparer::compute_domains(&expmods, point) {
-            Ok(domains) => domains,
-            Err(e) => {
-                return Err(format!("Error computing domains: {:?}", e)
-                    .as_bytes()
-                    .to_vec());
-            }
-        };
+        let domains =  ConstraintPolyPreparer::compute_domains(&expmods, point)?;
+        //  {
+        //     Ok(domains) => domains,
+        //     Err(e) => {
+        //         return Err(format!("Error computing domains: {:?}", e)
+        //             .as_bytes()
+        //             .to_vec());
+        //     }
+        // };
 
-        Ok([composition_poly, domains]
-            .concat()
-            .into_iter()
-            .map(|x| x.to_be_bytes::<32>())
-            .flatten()
-            .collect())
+        Ok([composition_poly, domains].concat())
     }
 }
 
@@ -89,26 +83,7 @@ impl ConstraintPolyPreparer {
     }
 
     pub fn expmod(base: U256, exponent: U256) -> Result<U256, Error> {
-        #[cfg(not(test))]
-        {
-            let result_bytes = static_call(
-                Call::new(),
-                address!("0000000000000000000000000000000000000005"),
-                &Self::make_expmod_input(base, exponent),
-            )
-            .expect("modexp precompile failed");
-            if result_bytes.len() != 32 {
-                return Err(Error::Revert(
-                    "modexp precompile returned invalid length".into(),
-                ));
-            }
-            return Ok(U256::from_be_slice(&result_bytes));
-        }
-
-        #[cfg(test)]
-        {
-            return Ok(base.pow_mod(exponent, PRIME));
-        }
+        Ok(base.pow_mod(exponent, PRIME))
     }
     /// Prepares a vector of modular exponentiations for the constraint polynomial.
     pub fn expmods(

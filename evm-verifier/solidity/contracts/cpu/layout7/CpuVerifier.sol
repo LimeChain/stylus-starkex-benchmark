@@ -23,6 +23,8 @@ import "./CpuConstraintPoly.sol";
 import "./LayoutSpecific.sol";
 import "./StarkVerifier.sol";
 
+import {console} from "forge-std/console.sol";
+
 /*
   Verifies a Cairo statement: there exists a memory assignment and a valid corresponding program
   trace satisfying the public memory requirements, for which if a program starts at pc=INITIAL_PC,
@@ -55,8 +57,9 @@ contract CpuVerifier is
     // IFactRegistry memoryPageFactRegistry;
 
     constructor(
-            address[] memory auxPolynomials
-    ) public StarkVerifier(type(uint256).max, 0, 0x0000000000000000000000000000000000000000) {
+            address[] memory auxPolynomials,
+            address oodsContract
+    ) public StarkVerifier(type(uint256).max, 0, oodsContract) {
         constraintPoly = CpuConstraintPoly(auxPolynomials[0]);
         initPeriodicColumns(auxPolynomials);
     }
@@ -193,7 +196,7 @@ contract CpuVerifier is
             // (skipping length word).
             mstore(add(ctx, mul(add(lmmPublicInputPtr, 1), 0x20)), add(publicInput, 0x20))
         }
-
+        
         layoutSpecificInit(ctx, publicInput);
     }
 
@@ -208,7 +211,7 @@ contract CpuVerifier is
         // the values of z and alpha).
         uint256 nPages = publicInput[OFFSET_N_PUBLIC_MEMORY_PAGES];
         uint256 publicInputSizeForHash = 0x20 * getOffsetPageProd(0, nPages);
-
+        
         assembly {
             publicInputHash := keccak256(add(publicInput, 0x20), publicInputSizeForHash)
         }
@@ -256,14 +259,13 @@ contract CpuVerifier is
             paddingValue := mload(add(paddingAddrPtr, 0x20))
         }
         uint256 hash_first_address_value = fadd(paddingAddr, fmul(paddingValue, alpha));
-
         // Pad the denominator with the shifted value of hash_first_address_value.
         uint256 denom_pad = fpow(fsub(z, hash_first_address_value), publicMemorySize - nValues);
         denominator = fmul(denominator, denom_pad);
 
+
         // Calculate the numerator.
         uint256 numerator = fpow(z, publicMemorySize);
-
         // Compute the final result: numerator * denominator^(-1).
         return fmul(numerator, inverse(denominator));
     }
@@ -368,12 +370,14 @@ contract CpuVerifier is
             uint256 public_memory_prod = computePublicMemoryQuotient(ctx);
             ctx[MM_MEMORY__MULTI_COLUMN_PERM__PERM__PUBLIC_MEMORY_PROD] = public_memory_prod;
         }
+        
         prepareForOodsCheck(ctx);
 
         uint256 compositionFromTraceValue;
         address lconstraintPoly = address(constraintPoly);
         uint256 offset = 0x20 * (1 + MM_CONSTRAINT_POLY_ARGS_START);
         uint256 size = 0x20 * (MM_CONSTRAINT_POLY_ARGS_END - MM_CONSTRAINT_POLY_ARGS_START);
+        
         assembly {
             // Call CpuConstraintPoly contract.
             let p := mload(0x40)
@@ -383,7 +387,7 @@ contract CpuVerifier is
             }
             compositionFromTraceValue := mload(p)
         }
-
+        
         uint256 claimedComposition = fadd(
             ctx[MM_COMPOSITION_OODS_VALUES],
             fmul(ctx[MM_OODS_POINT], ctx[MM_COMPOSITION_OODS_VALUES + 1])

@@ -7,11 +7,11 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
-use stylus_sdk::alloy_primitives::{address, uint, Address, U256};
+use stylus_sdk::alloy_primitives::{Address, U256};
+use stylus_sdk::{prelude::*, storage::StorageAddress};
 
-use stylus_sdk::call::{static_call, Call};
-use stylus_sdk::console;
-use stylus_sdk::{prelude::*, storage::StorageAddress, ArbResult};
+mod interfaces;
+use crate::interfaces::{IConstraintPolyPreparer, IConstraintPolyFinalizer};
 
 // debug imports
 
@@ -24,24 +24,22 @@ pub struct ConstraintPoly {
 
 #[public]
 impl ConstraintPoly {
-    #[fallback]
-    fn compute(&mut self, _calldata: &[u8]) -> ArbResult {
+    
+    #[inline]
+    fn compute(&mut self, _calldata: Vec<U256>) -> Result<U256, Vec<u8>> {
         if self.preparer_address.get().is_zero() {
             return Err(format!("Preparer address not set",).into());
         }
         if self.finalizer_address.get().is_zero() {
             return Err(format!("Finalizer address not set",).into());
         }
-        let cp_and_domains =
-            static_call(Call::new(), self.preparer_address.get(), _calldata).unwrap();
-        console!("cp_and_domains: {:?}", cp_and_domains);
-        let poly_data_result = static_call(
-            Call::new(),
-            self.finalizer_address.get(),
-            [_calldata, cp_and_domains.as_slice()].concat().as_slice(),
-        )
-        .unwrap();
-
+        
+        let preparer: IConstraintPolyPreparer = IConstraintPolyPreparer { address: self.preparer_address.get() };
+        let finalizer: IConstraintPolyFinalizer = IConstraintPolyFinalizer { address: self.finalizer_address.get() };
+        let cp_and_domains = preparer.compute(&mut *self, _calldata.clone())?;
+        let test = [_calldata, cp_and_domains].concat();
+       
+        let poly_data_result = finalizer.compute(&mut *self, test)?;
         Ok(poly_data_result)
     }
 

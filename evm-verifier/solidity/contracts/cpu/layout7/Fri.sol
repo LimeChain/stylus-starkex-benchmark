@@ -56,6 +56,7 @@ contract Fri is MemoryMap, MemoryAccessUtils, HornerEvaluator, FriLayer {
             "MAX_STEP_SIZE is inconsistent in MemoryMap.sol and FriLayer.sol"
         );
         initFriGroups(friCtx);
+        
         uint256 channelPtr = getChannelPtr(ctx);
         uint256 merkleQueuePtr = getMerkleQueuePtr(ctx);
 
@@ -85,7 +86,6 @@ contract Fri is MemoryMap, MemoryAccessUtils, HornerEvaluator, FriLayer {
         uint256 nFriSteps = friStepSizes.length;
         while (friStep < nFriSteps) {
             uint256 friCosetSize = 2**friStepSizes[friStep];
-
             nLiveQueries = computeNextLayer(
                 channelPtr,
                 friQueue,

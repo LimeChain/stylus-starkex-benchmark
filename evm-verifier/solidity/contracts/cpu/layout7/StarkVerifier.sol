@@ -16,13 +16,14 @@
 // SPDX-License-Identifier: Apache-2.0.
 pragma solidity ^0.6.12;
 
-import {console} from "forge-std/console.sol";
 
 import "./Fri.sol";
 import "./MemoryMap.sol";
 import "./MemoryAccessUtils.sol";
 import "../../interfaces/IStarkVerifier.sol";
 import "../../VerifierChannel.sol";
+
+import {console} from "forge-std/console.sol";
 
 abstract contract StarkVerifier is
     MemoryMap,
@@ -138,7 +139,7 @@ abstract contract StarkVerifier is
         uint256 nFriSteps = proofParams[PROOF_PARAMS_N_FRI_STEPS_OFFSET];
         require(nFriSteps <= MAX_FRI_STEPS, "Too many fri steps.");
         require(nFriSteps > 1, "Not enough fri steps.");
-
+        
         uint256[] memory friStepSizes = new uint256[](nFriSteps);
         for (uint256 i = 0; i < nFriSteps; i++) {
             friStepSizes[i] = proofParams[PROOF_PARAMS_FRI_STEPS_OFFSET + i];
@@ -153,6 +154,7 @@ abstract contract StarkVerifier is
         assembly {
             mstore(friStepSizesPtr, friStepSizes)
         }
+
         ctx[MM_FRI_LAST_LAYER_DEG_BOUND] = 2**logFriLastLayerDegBound;
         ctx[MM_TRACE_LENGTH] = 2**logTraceLength;
 
@@ -185,6 +187,7 @@ abstract contract StarkVerifier is
         virtual
         returns (bytes32);
 
+  
     function oodsConsistencyCheck(uint256[] memory ctx) internal view virtual;
 
     function getNColumnsInTrace() internal pure virtual returns (uint256);
@@ -244,7 +247,7 @@ abstract contract StarkVerifier is
         uint256 log_evalDomainSize = ctx[MM_LOG_EVAL_DOMAIN_SIZE];
         uint256 evalDomainSize = ctx[MM_EVAL_DOMAIN_SIZE];
         uint256 evalDomainGenerator = ctx[MM_EVAL_DOMAIN_GENERATOR];
-
+            
         assembly {
             /*
               Returns the bit reversal of value assuming it has the given number of bits.
@@ -348,14 +351,16 @@ abstract contract StarkVerifier is
         uint256 nUniqueQueries = ctx[MM_N_UNIQUE_QUERIES];
         uint256 channelPtr = getPtr(ctx, MM_CHANNEL);
         uint256 friQueue = getPtr(ctx, MM_FRI_QUEUE);
+        
         uint256 friQueueEnd = friQueue + nUniqueQueries * FRI_QUEUE_SLOT_SIZE_IN_BYTES;
         uint256 merkleQueuePtr = getPtr(ctx, MM_MERKLE_QUEUE);
         uint256 rowSize = 0x20 * nColumns;
         uint256 proofDataSkipBytes = 0x20 * (nTotalColumns - nColumns);
-
+        
         assembly {
             let proofPtr := mload(channelPtr)
             let merklePtr := merkleQueuePtr
+            
 
             for {
 
@@ -363,6 +368,7 @@ abstract contract StarkVerifier is
                 friQueue := add(friQueue, FRI_QUEUE_SLOT_SIZE_IN_BYTES)
             } {
                 let merkleLeaf := and(keccak256(proofPtr, rowSize), COMMITMENT_MASK)
+                
                 if eq(rowSize, 0x20) {
                     // If a leaf contains only 1 field element we don't hash it.
                     merkleLeaf := mload(proofPtr)
@@ -385,7 +391,6 @@ abstract contract StarkVerifier is
                 }
                 proofDataPtr := add(proofDataPtr, proofDataSkipBytes)
             }
-
             mstore(channelPtr, proofPtr)
         }
 
@@ -404,6 +409,7 @@ abstract contract StarkVerifier is
     */
     function computeFirstFriLayer(uint256[] memory ctx) internal view {
         adjustQueryIndicesAndPrepareEvalPoints(ctx);
+        
         readQueryResponsesAndDecommit(
             ctx,
             getNColumnsInTrace(),
@@ -420,7 +426,6 @@ abstract contract StarkVerifier is
                 bytes32(ctx[MM_TRACE_COMMITMENT + 1])
             );
         }
-
         readQueryResponsesAndDecommit(
             ctx,
             getNColumnsInComposition(),
@@ -465,7 +470,7 @@ abstract contract StarkVerifier is
         uint256 friLastLayerDegBound = ctx[MM_FRI_LAST_LAYER_DEG_BOUND];
         uint256 lastLayerPtr;
         uint256 badInput = 0;
-
+        
         assembly {
             let primeMinusOne := 0x800000000000011000000000000000000000000000000000000000000000000
             let channelPtr := add(add(ctx, 0x20), mul(lmmChannel, 0x20))
@@ -474,6 +479,7 @@ abstract contract StarkVerifier is
             // Make sure all the values are valid field elements.
             let length := mul(friLastLayerDegBound, 0x20)
             let lastLayerEnd := add(lastLayerPtr, length)
+            
             for {
                 let coefsPtr := lastLayerPtr
             } lt(coefsPtr, lastLayerEnd) {
@@ -498,7 +504,6 @@ abstract contract StarkVerifier is
             // Note: proof pointer is not incremented until this point.
             mstore(channelPtr, lastLayerEnd)
         }
-
         require(badInput == 0, "Invalid field element.");
         ctx[MM_FRI_LAST_LAYER_PTR] = lastLayerPtr;
     }
@@ -534,12 +539,13 @@ abstract contract StarkVerifier is
 
         // Send Out of Domain Sampling point.
         VerifierChannel.sendFieldElements(channelPtr, 1, getPtr(ctx, MM_OODS_POINT));
-
+        
         // Read the answers to the Out of Domain Sampling.
         uint256 lmmOodsValues = getMmOodsValues();
         for (uint256 i = lmmOodsValues; i < lmmOodsValues + getNOodsValues(); i++) {
             ctx[i] = VerifierChannel.readFieldElement(channelPtr, true);
         }
+        
         oodsConsistencyCheck(ctx);
         VerifierChannel.sendFieldElements(channelPtr, 1, getPtr(ctx, MM_OODS_ALPHA));
         ctx[MM_FRI_COMMITMENTS] = uint256(VerifierChannel.readHash(channelPtr, true));
@@ -561,6 +567,8 @@ abstract contract StarkVerifier is
         // Read FRI last layer commitment.
         readLastFriLayer(ctx);
 
+        
+
         // Generate queries.
         // emit LogGas("Read FRI commitments", gasleft());
         VerifierChannel.verifyProofOfWork(channelPtr, ctx[MM_PROOF_OF_WORK_BITS]);
@@ -571,8 +579,13 @@ abstract contract StarkVerifier is
             getPtr(ctx, MM_FRI_QUEUE),
             FRI_QUEUE_SLOT_SIZE_IN_BYTES
         );
-        // computeFirstFriLayer(ctx);
+        
+        computeFirstFriLayer(ctx);
+        
+        friVerifyLayers(ctx);
 
-        // friVerifyLayers(ctx);
+        for (uint256 i = 0; i < ctx.length; i++) {
+            console.log("ctx: ", ctx[i]);
+        }
     }
 }

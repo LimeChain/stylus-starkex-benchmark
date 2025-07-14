@@ -2,6 +2,7 @@
 pragma solidity ^0.6.12;
 
 import "./PrimeFieldElement0.sol";
+import {console} from "forge-std/console.sol";
 
 contract Prng is PrimeFieldElement0 {
     function storePrng(
@@ -64,7 +65,7 @@ contract Prng is PrimeFieldElement0 {
 
         // returns 32 bytes (for random field elements or four queries at a time).
         (digest, counter, randomBytes) = getRandomBytesInner(digest, counter);
-
+        console.log("counter: ", counter);
         storePrng(prngPtr, digest, counter);
         return randomBytes;
     }

@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0.
 pragma solidity ^0.6.12;
 
-import {console} from "forge-std/console.sol";
-
 import "./Prng.sol";
-
+import {console} from "forge-std/console.sol";
 /*
   Implements the communication channel from the verifier to the prover in the non-interactive case
   (See the BCS16 paper for more details).
@@ -36,7 +34,8 @@ contract VerifierChannel is Prng {
             // Skip 0x20 bytes length at the beginning of the proof.
             mstore(channelPtr, add(proofPtr, 0x20))
         }
-
+        console.logBytes32(publicInputHash);
+        console.log(uint256(publicInputHash));
         initPrng(getPrngPtr(channelPtr), publicInputHash);
     }
 
@@ -51,9 +50,8 @@ contract VerifierChannel is Prng {
         uint256 nElements,
         uint256 targetPtr
     ) internal pure {
-        uint256 val;
-        uint256 val1;
         require(nElements < 0x1000000, "Overflow protection failed.");
+
         assembly {
             // 31 * PRIME.
             let BOUND := 0xf80000000000020f00000000000000000000000000000000000000000000001f
@@ -77,6 +75,7 @@ contract VerifierChannel is Prng {
                 } {
                     // keccak256(abi.encodePacked(digest, counter));
                     fieldElement := keccak256(digestPtr, 0x40)
+                    
                     // *counterPtr += 1;
                     mstore(counterPtr, add(mload(counterPtr), 1))
                 }
@@ -84,8 +83,6 @@ contract VerifierChannel is Prng {
                 mstore(targetPtr, mulmod(fieldElement, K_MONTGOMERY_R_INV, K_MODULUS))
                 // emit ReadFieldElementEvent(fieldElement);
                 // log1(targetPtr, 0x20, 0x4bfcc54f35095697be2d635fb0706801e13637312eff0cedcdfc254b3b8c385e);
-                val := mload(targetPtr)
-                val1 := mload(counterPtr)
             }
         }
     }
@@ -117,7 +114,6 @@ contract VerifierChannel is Prng {
                 shift = 0x100;
             }
             shift -= 0x40;
-            // console.log("val", shift);
             uint256 queryIdx = (val >> shift) & mask;
             uint256 ptr = endPtr;
 
@@ -157,14 +153,12 @@ contract VerifierChannel is Prng {
             }
         }
 
-        console.log("endPtr", (endPtr - queriesOutPtr) / stride);
         return (endPtr - queriesOutPtr) / stride;
     }
 
     function readBytes(uint256 channelPtr, bool mix) internal pure returns (bytes32) {
         uint256 proofPtr;
         bytes32 val;
-        uint256 num;
 
         assembly {
             proofPtr := mload(channelPtr)
@@ -178,9 +172,7 @@ contract VerifierChannel is Prng {
                 let counterPtr := add(digestPtr, 0x20)
 
                 // digest += 1.
-                // num := add(mload(digestPtr), 1)
                 mstore(digestPtr, add(mload(digestPtr), 1))
-                num := mload(digestPtr)
                 mstore(counterPtr, val)
                 // prng.digest := keccak256(digest + 1||val), nonce was written earlier.
                 mstore(digestPtr, keccak256(digestPtr, 0x40))
@@ -208,8 +200,7 @@ contract VerifierChannel is Prng {
       gas costs.
     */
     function readFieldElement(uint256 channelPtr, bool mix) internal pure returns (uint256) {
-        uint256 res = uint256(readBytes(channelPtr, mix));
-        uint256 val = fromMontgomery(res);
+        uint256 val = fromMontgomery(uint256(readBytes(channelPtr, mix)));
         return val;
     }
 
@@ -220,7 +211,6 @@ contract VerifierChannel is Prng {
 
         uint256 proofOfWorkDigest;
 
-        uint256 val;
         assembly {
             // [0:0x29) := 0123456789abcded || digest     || workBits.
             //             8 bytes          || 0x20 bytes || 1 byte.
@@ -242,7 +232,6 @@ contract VerifierChannel is Prng {
             mstore(add(channelPtr, 0x40), 0)
 
             mstore(channelPtr, add(proofPtr, 0x8))
-            val := mload(channelPtr)
         }
 
         uint256 proofOfWorkThreshold = uint256(1) << (256 - proofOfWorkBits);

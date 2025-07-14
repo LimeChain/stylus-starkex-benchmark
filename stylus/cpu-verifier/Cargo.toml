@@ -1,0 +1,59 @@
+[package]
+name = "cpu-verifier"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/OffchainLabs/stylus-hello-world"
+repository = "https://github.com/OffchainLabs/stylus-hello-world"
+keywords = ["arbitrum", "ethereum", "stylus", "alloy"]
+description = "Stylus cpu verifier implementation"
+
+[dependencies]
+alloy-primitives = { version = "=0.8.20" }
+alloy-sol-types = "=0.8.20"
+mini-alloc = "0.8.4"
+hex = "0.4.3"
+dotenv = "0.15.0"
+utils = { path = "../utils" }
+tiny-keccak = { version = "2.0.0", features = ["keccak"] }
+stylus-sdk = { version = "0.9.0", default-features = false, features = [
+    "mini-alloc",
+] }
+
+
+[dev-dependencies]
+tokio = { version = "1.12.0", features = ["full"] }
+ethers = "2.0"
+eyre = "0.6.8"
+motsu = "0.8.0"
+stylus-sdk = { version = "0.9.0", features = ["stylus-test"] }
+test-utils = { path = "../test-utils" }
+oods = { path = "../oods" }
+constraint-poly = { path = "../constraint-poly" }
+constraint-poly-preparer = { path = "../constraint-poly-preparer" }
+constraint-poly-finalizer = { path = "../constraint-poly-finalizer" }
+pedersen-hp-x-c = { path = "../pedersen-hp-x-c" }
+pedersen-hp-y-c = { path = "../pedersen-hp-y-c" }
+poseidon-frk-0-col = { path = "../poseidon-frk-0-col" }
+poseidon-frk-1-col = { path = "../poseidon-frk-1-col" }
+poseidon-frk-2-col = { path = "../poseidon-frk-2-col" }
+poseidon-prk-0-col = { path = "../poseidon-prk-0-col" }
+poseidon-prk-1-col = { path = "../poseidon-prk-1-col" }
+
+[features]
+export-abi = ["stylus-sdk/export-abi"]
+debug = ["stylus-sdk/debug"]
+
+[[bin]]
+name = "cpu-verifier"
+path = "src/main.rs"
+
+[lib]
+crate-type = ["lib", "cdylib"]
+
+[profile.release]
+codegen-units = 1
+strip = true
+lto = true
+panic = "abort"
+opt-level = "z"

@@ -12,7 +12,7 @@ description = "Constraint poly"
 alloy-primitives = "=0.8.20"
 alloy-sol-types = "=0.8.20"
 # stylus-sdk = { version = "0.9.0" }
-stylus-sdk = { version = "0.9.0", features = ["debug"] }
+stylus-sdk = { version = "0.9.0" }
 
 [dev-dependencies]
 alloy-primitives = { version = "=0.8.20", features = ["sha3-keccak"] }
