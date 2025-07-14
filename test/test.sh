@@ -5,7 +5,7 @@ PROOF_PARAMS=$(tr '\n' ' ' < ../inputs/proof_params.txt)
 PROOF=$(tr '\n' ' ' < ../inputs/proof.txt)
 PUBLIC_INPUT=$(tr '\n' ' ' < ../inputs/public_input.txt)
 
-cpu_contract=0x272f19950bf95d21fb5c9ff50d4685e51023b21b
+cpu_contract=0xf1fede8133b032a1ebd78e107d510faec3e51365
 actual_output=$(cast call $cpu_contract "verifyProofExternal(uint256[],uint256[],uint256[])" \
 	$PROOF_PARAMS \
 	$PROOF \

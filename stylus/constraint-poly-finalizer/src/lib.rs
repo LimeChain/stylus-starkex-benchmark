@@ -16,7 +16,7 @@ use alloc::vec::Vec;
 
 use stylus_sdk::alloy_primitives::{uint, U256};
 use stylus_sdk::stylus_core::calls::errors::Error;
-use stylus_sdk::{prelude::*, ArbResult};
+use stylus_sdk::{prelude::*};
 
 // debug imports
 const PRIME: U256 = uint!(0x800000000000011000000000000000000000000000000000000000000000001_U256);

@@ -12,16 +12,13 @@ extern crate alloc;
 // use alloc::fmt::Debug;
 use alloc::vec::Vec;
 use consts::{mmaps::*, prime_field_element0::*, stark_params::*};
-use stylus_sdk::hex;
 
-use stylus_sdk::alloy_primitives::{address, uint, Address, U256};
-use stylus_sdk::call::{static_call, Call};
+use stylus_sdk::alloy_primitives::{uint, U256};
 // use stylus_sdk::console;
 use stylus_sdk::stylus_core::calls::errors::Error;
-use stylus_sdk::{prelude::*, storage::StorageAddress, ArbResult};
+use stylus_sdk::{prelude::*};
 
 const PRIME: U256 = uint!(0x800000000000011000000000000000000000000000000000000000000000001_U256);
-const EXPECTED_INPUT_LEN: usize = 1277;
 #[storage]
 #[entrypoint]
 pub struct Oods;
@@ -29,25 +26,7 @@ pub struct Oods;
 #[public]
 impl Oods {
     fn compute(&mut self, calldata: Vec<U256>) -> Result<Vec<U256>, Vec<u8>> {
-        // let ctx_words: Vec<U256> = calldata[32..].chunks(32).map(U256::from_be_slice).collect();
-        // if ctx_words.len() != EXPECTED_INPUT_LEN
-        //     && ctx_words.len() == usize::from_be_bytes(calldata[..32].try_into().unwrap())
-        // {
-        //     return Err(format!("Invalid calldata length: {}", calldata.len())
-        //         .as_bytes()
-        //         .to_vec());
-        // }
-
         let n_queries: usize = calldata[MM_N_UNIQUE_QUERIES].to::<usize>();
-        // match ctx_words[MM_N_UNIQUE_QUERIES].try_into() {
-        //     Ok(n) => n,
-        //     Err(_) => {
-        //         return Err(format!("n_queries: {}", ctx_words[MM_N_UNIQUE_QUERIES])
-        //             .as_bytes()
-        //             .to_vec())
-        //     }
-        // };
-
         let batch_inverse_array = Self::prepare_inverses(&calldata, n_queries)?;
 
         let res = Self::compute_fri_queue(&calldata, n_queries, &batch_inverse_array)?;
@@ -74,7 +53,7 @@ impl Oods {
 
         let mut denominators_ptr: usize = 0;
         // Start of batch_inverse_array, updated per query
-        for query_idx in 0..n_queries {
+        for _query_idx in 0..n_queries {
             fri_queue.push(ctx_words[fri_q_size_idx]);
             let mut res: U256 = U256::ZERO;
 
@@ -563,26 +542,7 @@ impl Oods {
     }
 
     pub fn expmod(base: U256, exponent: U256) -> Result<U256, Error> {
-        #[cfg(not(test))]
-        {
-            let result_bytes = static_call(
-                Call::new(),
-                address!("0000000000000000000000000000000000000005"),
-                &Self::make_expmod_input(base, exponent),
-            )
-            .expect("modexp precompile failed");
-            if result_bytes.len() != 32 {
-                return Err(Error::Revert(
-                    "modexp precompile returned invalid length".into(),
-                ));
-            }
-            return Ok(U256::from_be_slice(&result_bytes));
-        }
-
-        #[cfg(test)]
-        {
-            return Ok(base.pow_mod(exponent, PRIME));
-        }
+        return Ok(base.pow_mod(exponent, PRIME));
     }
 }
 

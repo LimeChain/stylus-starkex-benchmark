@@ -7,11 +7,8 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
-use stylus_sdk::alloy_primitives::{address, uint, Address, U256};
-
-use stylus_sdk::call::{static_call, Call};
-use stylus_sdk::console;
-use stylus_sdk::{prelude::*, storage::StorageAddress, ArbResult};
+use stylus_sdk::alloy_primitives::{Address, U256};
+use stylus_sdk::{prelude::*, storage::StorageAddress};
 
 mod interfaces;
 use crate::interfaces::{IConstraintPolyPreparer, IConstraintPolyFinalizer};

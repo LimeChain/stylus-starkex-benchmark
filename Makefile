@@ -29,9 +29,10 @@ nitro-test-mpfr:
 	forge test --match-contract MemoryPageFactRegistryTest \
 	--fork-url nitro -vvv
 
+mpfr_contract=0xa39ffa43eba037d67a0f4fe91956038aba0ca386
 .PHONY: mpfr_register_mem_page
 mpfr_register_mem_page:
-	@cast send $(contract) "registerRegularMemoryPage(uint256[],uint256,uint256,uint256)" \
+	@cast send $(mpfr_contract) "registerRegularMemoryPage(uint256[],uint256,uint256,uint256)" \
 	$(MPFR_INPUT) \
 	1923983994410949646266215635478491917832882166179969396251746181413976269170 \
 	2548115266380774413420845979236209449237376742700778263417656557146680537758 \
@@ -136,12 +137,16 @@ pedersen_cast_call:
 	--rpc-url nitro  --private-key $(nitro_pk) -vvv
 
 
-poly_contract=0x525c2aba45f66987217323e8a05ea400c65d06dc
+poly_contract=0x05C98569CA566a2035b87dE7d1b623C950798035
 fin_contract=0x525c2aba45f66987217323e8a05ea400c65d06dc
 preparer_contract=0x4a2ba922052ba54e29c5417bc979daaf7d5fe4f4
-.PHONY: constraint_poly_cast
-constraint_poly_cast:
-	cast call 0x525c2aba45f66987217323e8a05ea400c65d06dc $$(cat poly_input)  --rpc-url nitro
+.PHONY: constraint_poly_cast_full
+constraint_poly_cast_full:
+	cast call $(poly_contract) $$(cat stylus/testdata/poly_input.hex)  --rpc-url nitro
+
+.PHONY: constraint_poly_setup
+constraint_poly_setup:
+	cast send $(preparer_contract) $$(cat stylus/testdata/poly_input.hex)  --rpc-url nitro
 
 .PHONY: constraint_poly_prep
 constraint_poly_prep:
@@ -163,41 +168,37 @@ constraint_poly_fin-test:
 		exit 1; \
 	fi
 
-
-
-
-
-poly_contract=0x8dda4971de1da591117030e08489caa8ecd681d2
+poly_contract=0xfffb0ed9d6538e4b01cc0291814eaa4f2cc58254
 .PHONY: init_poly_contract
 init_poly_contract:
 	@cast send $(poly_contract) "setAddresses(address,address)" \
-	0x5cf348d96a063509defc7d40f152c8fc6696bf03 \
-	0xf4fdbac32453b4d27d05ea7ab0ee742d012eb33a \
+	0xe2b648b8e4bfa271f327e6c6c71fbbdf5a2395d4 \
+	0xa11df8dbba014facc83cdeb9b4b6a98796254007 \
 	--rpc-url $(rpc_url) --private-key $(pk) -vvv --gas-limit 2000000
 
-fri_contract=0x9edec7c2763588c7d399f180ca86cbd5894cd05b
+fri_contract=0xacd8c4dc161bef1cde93c14861589b35f5000a19
 .PHONY: init_fri_contract
 init_fri_contract:
 	@cast send $(fri_contract) "init(address,address,address)" \
-	0x2e6bc4fec54a41d20d815a20a104d76932a58eb2 \
+	0x6d27fb544ddd3647443e997a21f0fe1dfcde3057 \
 	0x0000000000000000000000000000000000000000 \
 	0x0000000000000000000000000000000000000000 \
 	--rpc-url $(rpc_url) --private-key $(pk) -vvv --gas-limit 2000000
 
-cpu_contract=0x272f19950bf95d21fb5c9ff50d4685e51023b21b
+cpu_contract=0xf1fede8133b032a1ebd78e107d510faec3e51365
 .PHONY: init_cpu_contract
 init_cpu_contract:
 	@cast send $(cpu_contract) "init(address,address,address,address,address,address,address,address,address,address)" \
-	0x8dda4971de1da591117030e08489caa8ecd681d2 \
-    0xa1f0fcc7553c0b130c5caacdab05402457ad1b82 \
-    0x5212a2fb387b606cf150db83da6b534af6ef216a \
-    0x35fad991b56d48ded3a15d5695ff8ebbf0d7ae76 \
-    0x02f464055ba53b437eeb8ff9aa4acb6b0117518e \
-    0xc653d05bc4482d1feee4e3bcb2e8990c2595a509 \
-    0x709ae794a582ca7293671665552baa4ac3c99803 \
-    0x71a7d75e930f74af0a0f1e83d5507e2f67a8b738 \
-    0x65255372edad0dc0f91316ed4ed71e662226fc58 \
-    0x9edec7c2763588c7d399f180ca86cbd5894cd05b \
+	0xfffb0ed9d6538e4b01cc0291814eaa4f2cc58254 \
+    0xd48eb52a301a3f72c81ab126056cf204b3bd2b0c \
+    0x6ba2c7e189daebe5b596d5b76b4d43f7b38d9de5 \
+    0x3b5b80304dfda6ba079161acfad648959c8745dd \
+    0x32c0013bdbbe645a85dd8bcc431d1b672bf0cfa1 \
+    0xa6788c256e8a1d2470df159a8b74ab86507aac10 \
+    0x801abd1cb75fefd0057943ba99ee83775c522831 \
+    0x07e2a25d805edf05f449d35fd1c846e8b1b4a140 \
+    0xfb493c75b7c2e2dca54f1c0f53ecf057b1de4e4a \
+    0xacd8c4dc161bef1cde93c14861589b35f5000a19 \
 	--rpc-url $(rpc_url) --private-key $(pk) -vvv
 
 PROOF_PARAMS := $(shell tr '\n' ' ' < ./inputs/proof_params.txt)
@@ -216,3 +217,22 @@ verify_proof:
 .PHONY: test
 test:
 	cd ./test && bash ./test.sh
+
+# 0xd9bF5428C4a93aA2DEdd0161F299071b9D1FEc0a
+# oods_contract=0x5FbDB2315678afecb367f032d93F642f64180aa3
+oods_contract=0x4A3635EEd2C38cB0Eac2D52ddE9CFaB49Be48C17
+# OOds call
+# estimate:
+# Solidity: 823170
+.PHONY: oods_call_mn
+oods_call_mn:
+	@cast estimate -vvv $(oods_contract) $$(cat stylus/testdata/oods_input.hex ) --rpc-url https://ethereum-rpc.publicnode.com
+
+oods_contract_nitro=0x4a2ba922052ba54e29c5417bc979daaf7d5fe4f4
+.PHONY: oods_call_nitro
+oods_call_nitro:
+	@cast estimate -vvv $(oods_contract_nitro) $$(cat stylus/testdata/oods_input.hex ) --rpc-url nitro
+
+.PHONY: deploy
+deploy:
+	stylus/deploy.sh

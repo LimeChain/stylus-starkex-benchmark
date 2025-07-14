@@ -8,8 +8,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
-use stylus_sdk::alloy_primitives::{address, hex, uint, Address, U256};
-use stylus_sdk::call::{static_call, Call};
+use stylus_sdk::alloy_primitives::{uint, U256};
 use stylus_sdk::stylus_core::calls::errors::Error;
 use stylus_sdk::{prelude::*};
 
@@ -17,7 +16,6 @@ const PRIME: U256 = uint!(0x8000000000000110000000000000000000000000000000000000
 const TRACE_LEN_IDX: usize = 7;
 const TRACE_GENERATOR_IDX: usize = 33;
 const OODS_POINT_IDX: usize = 34;
-const EXPECTED_INPUT_LEN: usize = 234;
 #[storage]
 #[entrypoint]
 pub struct ConstraintPolyPreparer;
