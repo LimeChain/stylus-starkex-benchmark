@@ -1,8 +1,5 @@
 extern crate alloc;
-use alloc::vec::Vec;
-
-use stylus_sdk::call::{static_call, Call};
-use stylus_sdk::alloy_primitives::{uint, address, U256};
+use stylus_sdk::alloy_primitives::{uint, U256};
 
 pub struct PrimeFieldElement0 {}
 

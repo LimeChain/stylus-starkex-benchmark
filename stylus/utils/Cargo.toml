@@ -1,0 +1,30 @@
+[package]
+name = "utils"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+alloy-primitives = { version = "=0.8.20" }
+alloy-sol-types = "=0.8.20"
+tiny-keccak = { version = "2.0.0", features = ["keccak"] }
+stylus-sdk = { version = "0.9.0", default-features = false, features = [
+    "mini-alloc",
+] }
+mini-alloc = "0.8.4"
+
+[features]
+default = ["mini-alloc"]
+mini-alloc = ["stylus-sdk/mini-alloc"]
+
+[lib]
+crate-type = ["lib", "cdylib"]
+
+[profile.release]
+codegen-units = 1
+strip = true
+lto = true
+panic = "abort"
+
+# If you need to reduce the binary size, it is advisable to try other
+# optimization levels, such as "s" and "z"
+opt-level = 3

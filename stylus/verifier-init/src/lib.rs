@@ -5,19 +5,15 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use stylus_sdk::{
-    alloy_primitives::{FixedBytes, U256, uint, Address},
-    crypto::keccak,
+    alloy_primitives::{U256, uint},
     prelude::*,
 };
 
-use macros::require;
-
-#[path = "prime-field-element0.rs"]
-pub mod prime_field_element0;
-#[path = "public-memory-offset.rs"]
-pub mod public_memory_offset;
-use crate::public_memory_offset::PublicMemoryOffset;
-use crate::prime_field_element0::PrimeFieldElement0;
+use utils::{
+    require,
+    prime_field_element0::PrimeFieldElement0,
+    public_memory_offset::PublicMemoryOffset
+};
 
 #[storage]
 #[entrypoint]

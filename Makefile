@@ -167,44 +167,38 @@ constraint_poly_fin-test:
 
 
 
-poly_contract=0x65bfc2977e3f658e5f3f13d3e8786b620fc70797
+poly_contract=0x8dda4971de1da591117030e08489caa8ecd681d2
 .PHONY: init_poly_contract
 init_poly_contract:
 	@cast send $(poly_contract) "setAddresses(address,address)" \
-	0x4b9bc2f775ae5ff13ddc3d511af451285c419f82 \
-	0x075c94df4e30274a3fd38b0d13ef501cc83542d6 \
+	0x5cf348d96a063509defc7d40f152c8fc6696bf03 \
+	0xf4fdbac32453b4d27d05ea7ab0ee742d012eb33a \
 	--rpc-url $(rpc_url) --private-key $(pk) -vvv --gas-limit 2000000
 
-.PHONY: test_poly
-test_poly:
-	@cast send $(poly_contract) "compute(uint8[])" \
-	[1,2] \
-	--rpc-url $(rpc_url) --private-key $(pk) -vvv --gas-limit 2000000
-
-fri_contract=0xf5ffd11a55afd39377411ab9856474d2a7cb697e
+fri_contract=0x9edec7c2763588c7d399f180ca86cbd5894cd05b
 .PHONY: init_fri_contract
 init_fri_contract:
 	@cast send $(fri_contract) "init(address,address,address)" \
-	0xdb2d15a3eb70c347e0d2c2c7861cafb946baab48 \
+	0x2e6bc4fec54a41d20d815a20a104d76932a58eb2 \
 	0x0000000000000000000000000000000000000000 \
 	0x0000000000000000000000000000000000000000 \
 	--rpc-url $(rpc_url) --private-key $(pk) -vvv --gas-limit 2000000
 
-cpu_contract=0xf8e63c2598dff064ba05f1bc7fb94aeaeedf7df2
+cpu_contract=0x272f19950bf95d21fb5c9ff50d4685e51023b21b
 .PHONY: init_cpu_contract
 init_cpu_contract:
 	@cast send $(cpu_contract) "init(address,address,address,address,address,address,address,address,address,address)" \
-	0x141f68377a1befdae5240660b49195bf07a8dbb5 \
-	0x3d76278b12ed405618ab335b64979a3c91445efa \
-	0xdb3f4ecb0298238a19ec5afd087c6d9df8041919 \
-	0x47cec0749bd110bc11f9577a70061202b1b6c034 \
-	0xce5303b8e8bfca9d1857976f300fb29928522c6f \
-	0xc2c0c3398915a2d2e9c33c186abfef3192ee25e8 \
-	0x1d55838a9ec169488d360783d65e6cd985007b72 \
-	0xd9bf5428c4a93aa2dedd0161f299071b9d1fec0a \
-	0xab03a15c0b1bfe992765280247b31a73489aa57b \
-	0xf5ffd11a55afd39377411ab9856474d2a7cb697e \
-	--rpc-url $(rpc_url) --private-key $(pk) -vvv --gas-limit 2000000
+	0x8dda4971de1da591117030e08489caa8ecd681d2 \
+    0xa1f0fcc7553c0b130c5caacdab05402457ad1b82 \
+    0x5212a2fb387b606cf150db83da6b534af6ef216a \
+    0x35fad991b56d48ded3a15d5695ff8ebbf0d7ae76 \
+    0x02f464055ba53b437eeb8ff9aa4acb6b0117518e \
+    0xc653d05bc4482d1feee4e3bcb2e8990c2595a509 \
+    0x709ae794a582ca7293671665552baa4ac3c99803 \
+    0x71a7d75e930f74af0a0f1e83d5507e2f67a8b738 \
+    0x65255372edad0dc0f91316ed4ed71e662226fc58 \
+    0x9edec7c2763588c7d399f180ca86cbd5894cd05b \
+	--rpc-url $(rpc_url) --private-key $(pk) -vvv
 
 PROOF_PARAMS := $(shell tr '\n' ' ' < ./inputs/proof_params.txt)
 PROOF := $(shell tr '\n' ' ' < ./inputs/proof.txt)
@@ -216,12 +210,9 @@ verify_proof:
 	$(PROOF_PARAMS) \
 	$(PROOF) \
 	$(PUBLIC_INPUT) \
-	--rpc-url $(rpc_url) --private-key $(pk) -vvv --gas-limit 2000000
+	--rpc-url $(rpc_url) --private-key $(pk) -vvv --gas-limit 20000000
 
-init_verifier_params_contract=0xab03a15c0b1bfe992765280247b31a73489aa57b
-.PHONY: init_verifier_params
-init_verifier_params:
-	@cast send $(init_verifier_params_contract) "initVerifierParams(uint256[],uint256[])" \
-	$(PUBLIC_INPUT) \
-	$(PROOF_PARAMS) \
-	--rpc-url $(rpc_url) --private-key $(pk) -vvv --gas-limit 2000000
+
+.PHONY: test
+test:
+	cd ./test && bash ./test.sh

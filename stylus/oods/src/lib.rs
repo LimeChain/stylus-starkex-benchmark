@@ -28,35 +28,30 @@ pub struct Oods;
 
 #[public]
 impl Oods {
-    #[fallback]
-    fn compute(&mut self, calldata: &[u8]) -> ArbResult {
-        let ctx_words: Vec<U256> = calldata[32..].chunks(32).map(U256::from_be_slice).collect();
-        if ctx_words.len() != EXPECTED_INPUT_LEN
-            && ctx_words.len() == usize::from_be_bytes(calldata[..32].try_into().unwrap())
-        {
-            return Err(format!("Invalid calldata length: {}", calldata.len())
-                .as_bytes()
-                .to_vec());
-        }
+    fn compute(&mut self, calldata: Vec<U256>) -> Result<Vec<U256>, Vec<u8>> {
+        // let ctx_words: Vec<U256> = calldata[32..].chunks(32).map(U256::from_be_slice).collect();
+        // if ctx_words.len() != EXPECTED_INPUT_LEN
+        //     && ctx_words.len() == usize::from_be_bytes(calldata[..32].try_into().unwrap())
+        // {
+        //     return Err(format!("Invalid calldata length: {}", calldata.len())
+        //         .as_bytes()
+        //         .to_vec());
+        // }
 
-        let n_queries: usize = match ctx_words[MM_N_UNIQUE_QUERIES].try_into() {
-            Ok(n) => n,
-            Err(_) => {
-                return Err(format!("n_queries: {}", ctx_words[MM_N_UNIQUE_QUERIES])
-                    .as_bytes()
-                    .to_vec())
-            }
-        };
+        let n_queries: usize = calldata[MM_N_UNIQUE_QUERIES].to::<usize>();
+        // match ctx_words[MM_N_UNIQUE_QUERIES].try_into() {
+        //     Ok(n) => n,
+        //     Err(_) => {
+        //         return Err(format!("n_queries: {}", ctx_words[MM_N_UNIQUE_QUERIES])
+        //             .as_bytes()
+        //             .to_vec())
+        //     }
+        // };
 
-        let batch_inverse_array = Self::prepare_inverses(&ctx_words, n_queries)?;
+        let batch_inverse_array = Self::prepare_inverses(&calldata, n_queries)?;
 
-        let res = Self::compute_fri_queue(&ctx_words, n_queries, &batch_inverse_array)?;
-
-        Ok(res
-            .iter()
-            .map(|x| x.to_be_bytes::<32>())
-            .flatten()
-            .collect())
+        let res = Self::compute_fri_queue(&calldata, n_queries, &batch_inverse_array)?;
+        Ok(res)
     }
 }
 

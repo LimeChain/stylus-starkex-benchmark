@@ -26,6 +26,6 @@ sol_interface! {
     }
 
     interface IFriStatementVerifier {
-        function verifyFri(uint256[] memory proof, uint256[] memory ctx, uint256[] memory fri_step_sizes) external view;
+        function verify(uint256[] memory proof, uint256[] memory ctx, uint256[] memory fri_step_sizes) external view returns(uint256[] memory);
     }
 }

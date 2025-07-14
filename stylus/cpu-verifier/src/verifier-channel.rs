@@ -1,8 +1,10 @@
 extern crate alloc;
 use alloc::vec::Vec;
 
-use macros::require;
-use crate::prime_field_element0::PrimeFieldElement0;
+use utils::{
+    require,
+    prime_field_element0::PrimeFieldElement0
+};
 
 use stylus_sdk::{
     alloy_primitives::{FixedBytes, U256, uint},

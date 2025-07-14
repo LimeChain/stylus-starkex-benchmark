@@ -3,26 +3,28 @@
 #[macro_use]
 extern crate alloc;
 use alloc::vec::Vec;
-use macros::require;
+use utils::{
+    require,
+    prime_field_element0::PrimeFieldElement0
+};
 
-#[path = "prime-field-element0.rs"]
-pub mod prime_field_element0;
-#[path = "public-memory-offset.rs"]
-pub mod public_memory_offset;
-use crate::public_memory_offset::PublicMemoryOffset;
-use crate::prime_field_element0::PrimeFieldElement0;
+#[path = "interfaces.rs"]
+pub mod interfaces;
+use crate::interfaces::ICpuOods;
 
 use alloy_sol_types::sol;
 use stylus_sdk::{
     alloy_primitives::{FixedBytes, U256, uint, Address},
     crypto::keccak,
     prelude::*,
-    evm::{log},
 };
 
 sol! {
-    event FriVerified(uint256[] ctx);
+    event FriVerified(
+        uint256[] ctx
+    );
 }
+
 
 sol_storage! {
     #[entrypoint]
@@ -33,7 +35,7 @@ sol_storage! {
     }
 }
 
-const COMMITMENT_MASK: U256 = uint!(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF000000000000000000000000_U256);
+// const COMMITMENT_MASK: U256 = uint!(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF000000000000000000000000_U256);
 
 #[public]
 impl FriStatementVerifier {
@@ -51,28 +53,24 @@ impl FriStatementVerifier {
     }
 
     #[inline]
-    // compute_first_fri_layer
-    fn verify_fri(&mut self, mut proof: Vec<U256>, mut ctx: Vec<U256>, fri_step_sizes: Vec<U256>) -> Result<(), Vec<u8>> {
+    fn verify(&mut self, mut proof: Vec<U256>, mut ctx: Vec<U256>, fri_step_sizes: Vec<U256>) -> Result<Vec<U256>, Vec<u8>> {
         Self::adjust_query_indices_and_prepare_eval_points(&mut ctx);
-        
-        let val1 = FixedBytes(ctx[6].to_be_bytes());
-        let val2 = FixedBytes(ctx[7].to_be_bytes());
-        let val3 = FixedBytes(ctx[8].to_be_bytes());
+
+        let val1: FixedBytes<32> = FixedBytes(ctx[6].to_be_bytes());
+        let val2: FixedBytes<32> = FixedBytes(ctx[7].to_be_bytes());
+        let val3: FixedBytes<32> = FixedBytes(ctx[8].to_be_bytes());
         self.read_query_responses_and_decommit(&mut proof, &mut ctx, 12, 9, 602, val1)?;
         self.read_query_responses_and_decommit(&mut proof, &mut ctx, 12, 3, 611, val2)?;
         self.read_query_responses_and_decommit(&mut proof, &mut ctx, 2, 2, 1178, val3)?;
 
-        let oods_contract =  self.oods.get();
-        let oods_bytes: Vec<u8> = ctx.iter().map(|x| x.to_be_bytes::<32>()).flatten().collect();
-        let oods_result: Vec<U256> = self.vm().call(&self, oods_contract, &oods_bytes)?.chunks(32).map(U256::from_be_slice).collect();
+        let oods_contract: ICpuOods = ICpuOods {address: self.oods.get()};
+        let oods_result: Vec<U256> = oods_contract.compute(&mut *self, ctx.to_vec())?;
         for i in 0..oods_result.len() {
             ctx[109 + i] = oods_result[i];
         }
         
         self.fri_verify_layers(&mut ctx, &proof, &fri_step_sizes)?;
-
-        log(FriVerified { ctx: ctx });
-        Ok(())
+        Ok(ctx)
     }
 
 }
@@ -132,7 +130,7 @@ impl FriStatementVerifier {
             }
 
             let merkle_leaf_hash: U256 = keccak(&input_data).into();
-            let mut merkle_leaf = merkle_leaf_hash & COMMITMENT_MASK;
+            let mut merkle_leaf = merkle_leaf_hash & uint!(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF000000000000000000000000_U256);
 
             if row_size == 32 {
                 merkle_leaf = Self::read_ptr(proof, proof_ptr, 8);
@@ -165,19 +163,16 @@ impl FriStatementVerifier {
         }
     }
 
-    fn read_bytes_from_ptr(proof: &[U256], ctx: &mut [U256], channel_ptr: usize, mix: bool) -> U256 {
+    fn read_bytes_from_ptr(proof: &[U256], ctx: &mut [U256], channel_ptr: usize) -> U256 {
         let proof_ptr = ctx[channel_ptr];
         let val = Self::read_ptr(proof, proof_ptr.to::<usize>(), 8);
         ctx[channel_ptr] = proof_ptr + U256::from(32);
 
-        if mix {
-            // Mix the bytes that were read into the state of the channel.
-            let mut input_data = Vec::new();
-            input_data.extend_from_slice(&(ctx[channel_ptr + 1] + U256::from(1)).to_be_bytes::<32>());
-            input_data.extend_from_slice(&val.to_be_bytes::<32>());
-            ctx[channel_ptr + 1] = uint!(keccak(&input_data).into());
-            ctx[channel_ptr + 2] = U256::ZERO;
-        }
+        let mut input_data = Vec::new();
+        input_data.extend_from_slice(&(ctx[channel_ptr + 1] + U256::from(1)).to_be_bytes::<32>());
+        input_data.extend_from_slice(&val.to_be_bytes::<32>());
+        ctx[channel_ptr + 1] = uint!(keccak(&input_data).into());
+        ctx[channel_ptr + 2] = U256::ZERO;
 
         val
     }
@@ -200,7 +195,7 @@ impl FriStatementVerifier {
         let fri_statement_contract = self.fri_statement.get();
         while fri_step < n_fri_inner_layers {
             let mut data_to_hash = Vec::new();
-            let output_layer_hash = Self::read_bytes_from_ptr(proof, ctx, 10, true);
+            let output_layer_hash = Self::read_bytes_from_ptr(proof, ctx, 10);
             data_to_hash.extend_from_slice(&ctx[295 + fri_step].to_be_bytes::<32>());
             data_to_hash.extend_from_slice(&fri_step_sizes[fri_step].to_be_bytes::<32>());
             data_to_hash.extend_from_slice(&input_layer_hash.to_be_bytes::<32>());

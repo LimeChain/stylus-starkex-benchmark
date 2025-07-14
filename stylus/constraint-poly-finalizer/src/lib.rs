@@ -17,7 +17,6 @@ use alloc::vec::Vec;
 use stylus_sdk::alloy_primitives::{uint, U256};
 use stylus_sdk::stylus_core::calls::errors::Error;
 use stylus_sdk::{prelude::*, ArbResult};
-use stylus_sdk::console;
 
 // debug imports
 const PRIME: U256 = uint!(0x800000000000011000000000000000000000000000000000000000000000001_U256);
@@ -87,1445 +86,1443 @@ impl ConstraintPolyFinalizer {
         &mut self,
         calldata_words: Vec<U256>,
     ) -> Result<U256, Vec<u8>> {
-        // let input: &[U256] = &calldata_words[..234];
-        console!("ouch: {}", calldata_words.len());
-        Ok(U256::ZERO)
-        // let composition_poly: &[U256] = &calldata_words[234..286];
-        // let domains: &[U256] = &calldata_words[286..];
-
-        // let den_invs = Self::denominator_invs(&domains)?;
-        // let mut res: U256 = U256::ZERO;
-        // let mut val: U256 = U256::ZERO;
-        // let mut alpha_pows = [U256::ONE; 124];
-        // for i in 1..124 {
-        //     alpha_pows[i] = alpha_pows[i - 1].mul_mod(input[41], PRIME);
-        // }
-        // res = res
-        //     .add_mod(
-        //         Self::flag_constraint(composition_poly[0], domains[3], den_invs[0])
-        //             .mul_mod(alpha_pows[0], PRIME),
-        //         PRIME,
-        //     )
-        //     .add_mod(
-        //         input[42]
-        //             .mul_mod(den_invs[1], PRIME)
-        //             .mul_mod(alpha_pows[1], PRIME),
-        //         PRIME,
-        //     );
-
-        // {
-        //     val = input[92] // column3_row1 @ 0xb80
-        //         .add_mod(
-        //             PRIME.wrapping_sub(
-        //                 input[42] // column0_row0 @ 0x540
-        //                     .mul_mod(input[8], PRIME) // offset_size @ 0x100
-        //                     .add_mod(input[151], PRIME) // column6_row4 @ 0x12e0
-        //                     .mul_mod(input[8], PRIME)
-        //                     .add_mod(input[155], PRIME) // column6_row8 @ 0x1360
-        //                     .mul_mod(input[8], PRIME)
-        //                     .add_mod(input[147], PRIME), // column6_row0 @ 0x1260
-        //             ),
-        //             PRIME,
-        //         )
-        //         .mul_mod(den_invs[2], PRIME) // denominator: point^(trace_length / 16) - 1
-        //         // Multiply by alpha^2
-        //         .mul_mod(alpha_pows[2], PRIME);
-
-        //     // Accumulate result
-        //     res = res.add_mod(val, PRIME);
-        // }
-        // // Accumulate into result with current alpha power
-        // res = res
-        //     .add_mod(
-        //         Self::flag_constraint(composition_poly[4], den_invs[2], alpha_pows[3]),
-        //         PRIME,
-        //     )
-        //     .add_mod(
-        //         Self::flag_constraint(composition_poly[8], den_invs[2], alpha_pows[4]),
-        //         PRIME,
-        //     )
-        //     .add_mod(
-        //         Self::flag_constraint(composition_poly[11], den_invs[2], alpha_pows[5]),
-        //         PRIME,
-        //     )
-        //     .add_mod(
-        //         Self::flag_constraint(composition_poly[14], den_invs[2], alpha_pows[6]),
-        //         PRIME,
-        //     );
-
-        // // Constraint expression for cpu/operands/mem_dst_addr:
-        // // val = input[99] + input[9] - (composition_poly[0] * input[200] + (1 - composition_poly[0]) * input[194] + input[147])
-        // val = input[99].add_mod(input[9], PRIME).add_mod(
-        //     PRIME.wrapping_sub(
-        //         composition_poly[0]
-        //             .mul_mod(input[200], PRIME)
-        //             .add_mod(
-        //                 U256::ONE
-        //                     .add_mod(PRIME.wrapping_sub(composition_poly[0]), PRIME)
-        //                     .mul_mod(input[194], PRIME),
-        //                 PRIME,
-        //             )
-        //             .add_mod(input[147], PRIME),
-        //     ),
-        //     PRIME,
-        // );
-
-        // // res += val * alpha^7
-        // res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[7]);
-
-        // val = input[95].add_mod(input[9], PRIME).add_mod(
-        //     PRIME.wrapping_sub(
-        //         composition_poly[15]
-        //             .mul_mod(input[200], PRIME)
-        //             .add_mod(
-        //                 U256::ONE
-        //                     .add_mod(PRIME.wrapping_sub(composition_poly[15]), PRIME)
-        //                     .mul_mod(input[194], PRIME),
-        //                 PRIME,
-        //             )
-        //             .add_mod(input[155], PRIME),
-        //     ),
-        //     PRIME,
-        // );
-
-        // // res += val * alpha^8
-        // res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[8]);
-
-        // val = input[103].add_mod(input[9], PRIME).add_mod(
-        //     PRIME.wrapping_sub(
-        //         composition_poly[1]
-        //             .mul_mod(input[91], PRIME)
-        //             .add_mod(composition_poly[2].mul_mod(input[194], PRIME), PRIME)
-        //             .add_mod(composition_poly[3].mul_mod(input[200], PRIME), PRIME)
-        //             .add_mod(composition_poly[4].mul_mod(input[96], PRIME), PRIME)
-        //             .add_mod(input[151], PRIME),
-        //     ),
-        //     PRIME,
-        // );
-
-        // // res += val * alpha^9
-        // res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[9]);
-
-        // val = input[197].add_mod(
-        //     PRIME.wrapping_sub(input[96].mul_mod(input[104], PRIME)),
-        //     PRIME,
-        // );
-
-        // res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[10]);
-
-        // // cpu/operands/res
-        // // (1 - bit_9) * col8_row12 - (bit_5 * (col3_row5 + col3_row13) + bit_6 * col8_row4 + flag_res_op1_0 * col3_row13)
-        // val = U256::ONE
-        //     .add_mod(PRIME.wrapping_sub(composition_poly[7]), PRIME)
-        //     .mul_mod(input[203], PRIME)
-        //     .add_mod(
-        //         PRIME.wrapping_sub(
-        //             composition_poly[5]
-        //                 .mul_mod(input[96].add_mod(input[104], PRIME), PRIME)
-        //                 .add_mod(composition_poly[6].mul_mod(input[197], PRIME), PRIME)
-        //                 .add_mod(composition_poly[8].mul_mod(input[104], PRIME), PRIME),
-        //         ),
-        //         PRIME,
-        //     );
-
-        // // res += val * alpha ** 11.
-        // res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[11]);
-
-        // // Constraint: col8_row2 - bit_9 * col3_row9
-        // val = input[196]
-        //     .add_mod(
-        //         PRIME.wrapping_sub(composition_poly[7].mul_mod(input[100], PRIME)),
-        //         PRIME,
-        //     )
-        //     .mul_mod(domains[20], PRIME);
-        // // res += val * alpha ** 12.
-        // res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[12]);
-        // {
-        //     // Constraint: column8_row10 - column8_row2 * column8_row12
-        //     val = input[202]
-        //         .add_mod(
-        //             PRIME.wrapping_sub(input[196].mul_mod(input[203], PRIME)),
-        //             PRIME,
-        //         )
-        //         .mul_mod(domains[20], PRIME);
-
-        //     // res += val * alpha^13
-        //     res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[13]);
-        // }
-        // {
-        //     // Intermediate values
-        //     let one_minus_bit_9 = U256::ONE.add_mod(PRIME.wrapping_sub(composition_poly[7]), PRIME); // 0x1e20
-
-        //     let diff_16_minus_sum_0_13 = input[105].add_mod(
-        //         // 0xd20
-        //         PRIME.wrapping_sub(
-        //             input[91].add_mod(input[104], PRIME), // input[91] = 0xb60, input[104] = 0xd00
-        //         ),
-        //         PRIME,
-        //     );
-
-        //     let left = one_minus_bit_9
-        //         .mul_mod(input[105], PRIME) // 0xd20
-        //         .add_mod(
-        //             input[196].mul_mod(diff_16_minus_sum_0_13, PRIME), // input[196] = 0x1880
-        //             PRIME,
-        //         );
-
-        //     let right = composition_poly[11]
-        //         .mul_mod(composition_poly[16], PRIME) // 0x1ea0 * 0x1f40
-        //         .add_mod(
-        //             composition_poly[9].mul_mod(input[203], PRIME), // 0x1e60 * 0x1960
-        //             PRIME,
-        //         )
-        //         .add_mod(
-        //             composition_poly[10].mul_mod(
-        //                 input[91].add_mod(input[203], PRIME), // 0xb60 + 0x1960
-        //                 PRIME,
-        //             ),
-        //             PRIME,
-        //         );
-
-        //     res = Self::res_val_constraint(
-        //         res,
-        //         left.add_mod(PRIME.wrapping_sub(right), PRIME)
-        //             .mul_mod(domains[20], PRIME),
-        //         den_invs[2],
-        //         alpha_pows[14],
-        //     );
-        // }
-
-        // // res += val * alpha^15
-        // res = res.add_mod(
-        //     input[202]
-        //         .add_mod(PRIME.wrapping_sub(composition_poly[7]), PRIME)
-        //         .mul_mod(
-        //             input[105].add_mod(PRIME.wrapping_sub(composition_poly[16]), PRIME),
-        //             PRIME,
-        //         )
-        //         .mul_mod(domains[20], PRIME)
-        //         .mul_mod(den_invs[2], PRIME)
-        //         .mul_mod(alpha_pows[15], PRIME),
-        //     PRIME,
-        // );
-        // {
-        //     // val = column8_row16 - (column8_row0 + bit10 * column8_row12 + bit11 + bit12 * 2)
-        //     let term = input[194]
-        //         .add_mod(composition_poly[17].mul_mod(input[203], PRIME), PRIME)
-        //         .add_mod(composition_poly[18], PRIME)
-        //         .add_mod(composition_poly[12].mul_mod(U256::from(2), PRIME), PRIME);
-
-        //     let val = input[206]
-        //         .add_mod(PRIME.wrapping_sub(term), PRIME)
-        //         .mul_mod(domains[20], PRIME)
-        //         .mul_mod(den_invs[2], PRIME);
-
-        //     res = res.add_mod(val.mul_mod(alpha_pows[16], PRIME), PRIME);
-        // }
-
-        // // val = column8_row24 - (fp_update_regular_0 * column8_row8 + bit13 * column3_row9 + bit12 * (column8_row0 + 2))
-        // res = res.add_mod(
-        //     input[209]
-        //         .add_mod(
-        //             PRIME.wrapping_sub(
-        //                 composition_poly[14]
-        //                     .mul_mod(input[200], PRIME)
-        //                     .add_mod(composition_poly[13].mul_mod(input[100], PRIME), PRIME)
-        //                     .add_mod(
-        //                         composition_poly[12]
-        //                             .mul_mod(input[194].add_mod(U256::from(2), PRIME), PRIME),
-        //                         PRIME,
-        //                     ),
-        //             ),
-        //             PRIME,
-        //         )
-        //         .mul_mod(domains[20], PRIME)
-        //         .mul_mod(den_invs[2], PRIME)
-        //         .mul_mod(alpha_pows[17], PRIME),
-        //     PRIME,
-        // );
-
-        // // val = bit_12 * (column3_row9 - column8_row8)
-
-        // res = Self::res_val_constraint(
-        //     res,
-        //     composition_poly[12].mul_mod(
-        //         input[100].add_mod(PRIME.wrapping_sub(input[200]), PRIME),
-        //         PRIME,
-        //     ),
-        //     den_invs[2],
-        //     alpha_pows[18],
-        // );
-
-        // // val = bit_12 * (column3_row5 - (column3_row0 + bit_2 + 1))
-
-        // val = composition_poly[12].mul_mod(
-        //     input[96].add_mod(
-        //         PRIME.wrapping_sub(
-        //             input[91]
-        //                 .add_mod(composition_poly[1], PRIME)
-        //                 .add_mod(U256::ONE, PRIME),
-        //         ),
-        //         PRIME,
-        //     ),
-        //     PRIME,
-        // );
-
-        // // res += val * alpha ** 19.
-        // res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[19]);
-
-        // val = composition_poly[12].mul_mod(
-        //     input[147].add_mod(PRIME.wrapping_sub(input[9]), PRIME),
-        //     PRIME,
-        // );
-
-        // res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[20]);
-
-        // val = composition_poly[12].mul_mod(
-        //     input[155].add_mod(
-        //         PRIME.wrapping_sub(input[9].add_mod(U256::ONE, PRIME)),
-        //         PRIME,
-        //     ),
-        //     PRIME,
-        // );
-
-        // res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[21]);
-
-        // val = composition_poly[12].mul_mod(
-        //     composition_poly[12]
-        //         .add_mod(composition_poly[12], PRIME)
-        //         .add_mod(U256::from(1), PRIME)
-        //         .add_mod(U256::from(1), PRIME)
-        //         .add_mod(
-        //             PRIME.wrapping_sub(
-        //                 composition_poly[0]
-        //                     .add_mod(composition_poly[15], PRIME)
-        //                     .add_mod(U256::from(4), PRIME),
-        //             ),
-        //             PRIME,
-        //         ),
-        //     PRIME,
-        // );
-        // // res += val * alpha ** 22.
-        // res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[22]);
-
-        // res = Self::res_val_constraint(
-        //     res,
-        //     composition_poly[13].mul_mod(
-        //         input[147]
-        //             .add_mod(U256::from(2), PRIME)
-        //             .add_mod(PRIME.wrapping_sub(input[9]), PRIME),
-        //         PRIME,
-        //     ),
-        //     den_invs[2],
-        //     alpha_pows[23],
-        // );
-
-        // {
-        //     let val = composition_poly[13].mul_mod(
-        //         input[151]
-        //             .add_mod(U256::from(1), PRIME)
-        //             .add_mod(PRIME.wrapping_sub(input[9]), PRIME),
-        //         PRIME,
-        //     );
-
-        //     res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[24]);
-        // }
-        // {
-        //     let sum = composition_poly[9]
-        //         .add_mod(composition_poly[0], PRIME)
-        //         .add_mod(composition_poly[3], PRIME)
-        //         .add_mod(composition_poly[8], PRIME)
-        //         .add_mod(PRIME.wrapping_sub(U256::from(4)), PRIME);
-
-        //     res = Self::res_val_constraint(
-        //         res,
-        //         composition_poly[13].mul_mod(sum, PRIME),
-        //         den_invs[2],
-        //         alpha_pows[25],
-        //     );
-        // }
-
-        // res = Self::res_val_constraint(
-        //     res,
-        //     composition_poly[19].mul_mod(
-        //         input[100].add_mod(PRIME.wrapping_sub(input[203]), PRIME),
-        //         PRIME,
-        //     ),
-        //     den_invs[2],
-        //     alpha_pows[26],
-        // );
-
-        // res = Self::res_val_constraint(
-        //     res,
-        //     input[194].add_mod(PRIME.wrapping_sub(input[10]), PRIME),
-        //     den_invs[4],
-        //     alpha_pows[27],
-        // );
-
-        // res = Self::res_val_constraint(
-        //     res,
-        //     input[200].add_mod(PRIME.wrapping_sub(input[10]), PRIME),
-        //     den_invs[4],
-        //     alpha_pows[28],
-        // );
-
-        // {
-        //     res = res.add_mod(
-        //         input[91]
-        //             .add_mod(PRIME.wrapping_sub(input[11]), PRIME)
-        //             .mul_mod(den_invs[4], PRIME)
-        //             .mul_mod(alpha_pows[29], PRIME),
-        //         PRIME,
-        //     );
-        // }
-
-        // // res += val * alpha ** 30.
-        // res = res.add_mod(
-        //     input[194]
-        //         .add_mod(PRIME.wrapping_sub(input[12]), PRIME)
-        //         .mul_mod(den_invs[3], PRIME)
-        //         .mul_mod(alpha_pows[30], PRIME),
-        //     PRIME,
-        // );
-
-        // // res += val * alpha ** 31.
-        // res = res.add_mod(
-        //     input[200]
-        //         .add_mod(PRIME.wrapping_sub(input[10]), PRIME)
-        //         .mul_mod(den_invs[3], PRIME)
-        //         .mul_mod(alpha_pows[31], PRIME),
-        //     PRIME,
-        // );
-
-        // // res += val * alpha ** 32.
-        // res = res.add_mod(
-        //     input[91]
-        //         .add_mod(PRIME.wrapping_sub(input[13]), PRIME)
-        //         .mul_mod(den_invs[3], PRIME)
-        //         .mul_mod(alpha_pows[32], PRIME),
-        //     PRIME,
-        // );
-        // {
-        //     let term1 = input[14].add_mod(
-        //         PRIME.wrapping_sub(input[133].add_mod(input[15].mul_mod(input[134], PRIME), PRIME)),
-        //         PRIME,
-        //     );
-
-        //     let val = term1
-        //         .mul_mod(input[230], PRIME)
-        //         .add_mod(input[91], PRIME)
-        //         .add_mod(input[15].mul_mod(input[92], PRIME), PRIME)
-        //         .add_mod(PRIME.wrapping_sub(input[14]), PRIME);
-
-        //     // res += val * alpha ** 33.
-        //     res = Self::res_val_constraint(res, val, den_invs[4], alpha_pows[33]);
-        // }
-        // {
-        //     let term1 = input[14].add_mod(
-        //         PRIME.wrapping_sub(input[135].add_mod(input[15].mul_mod(input[136], PRIME), PRIME)),
-        //         PRIME,
-        //     );
-
-        //     let term2 = input[14].add_mod(
-        //         PRIME.wrapping_sub(input[93].add_mod(input[15].mul_mod(input[94], PRIME), PRIME)),
-        //         PRIME,
-        //     );
-
-        //     let val = term1
-        //         .mul_mod(input[232], PRIME)
-        //         .add_mod(PRIME.wrapping_sub(term2.mul_mod(input[230], PRIME)), PRIME);
-
-        //     res = Self::res_val_constraint(
-        //         res,
-        //         val.mul_mod(domains[22], PRIME),
-        //         den_invs[5],
-        //         alpha_pows[34],
-        //     );
-        // }
-        // {
-        //     let val = input[230].add_mod(PRIME.wrapping_sub(input[16]), PRIME);
-
-        //     res = Self::res_val_constraint(res, val, den_invs[6], alpha_pows[35]);
-        // }
-        // {
-        //     val = composition_poly[20]
-        //         .mul_mod(composition_poly[20], PRIME)
-        //         .add_mod(PRIME.wrapping_sub(composition_poly[20]), PRIME)
-        //         .mul_mod(domains[22], PRIME);
-        //     // res += val * alpha ** 36.
-        //     // res = res.add_mod(val.mul_mod(alpha_pows[36], PRIME), PRIME);
-        //     res = Self::res_val_constraint(res, val, den_invs[5], alpha_pows[36]);
-        // }
-        // {
-        //     //06185fe9960b9c13158b8394c6428cb4c4957440fb05f151aa2b53de8a57367d
-        //     let val = composition_poly[20]
-        //         .add_mod(PRIME.wrapping_sub(U256::from(1)), PRIME)
-        //         .mul_mod(
-        //             input[134].add_mod(PRIME.wrapping_sub(input[136]), PRIME),
-        //             PRIME,
-        //         )
-        //         .mul_mod(domains[22], PRIME)
-        //         .mul_mod(den_invs[5], PRIME);
-        //     // res += val * alpha ** 37.
-        //     res = res.add_mod(val.mul_mod(alpha_pows[37], PRIME), PRIME);
-        // }
-
-        // // res += val * alpha ** 38.
-
-        // res = Self::res_val_constraint(
-        //     Self::res_val_constraint(
-        //         res,
-        //         input[133].add_mod(PRIME.wrapping_sub(U256::from(1)), PRIME),
-        //         den_invs[4],
-        //         alpha_pows[38],
-        //     ),
-        //     input[93],
-        //     den_invs[2],
-        //     alpha_pows[39],
-        // );
-
-        // res = Self::res_val_constraint(res, input[94], den_invs[2], alpha_pows[40]);
-
-        // {
-        //     let val = input[17]
-        //         .add_mod(PRIME.wrapping_sub(input[149]), PRIME)
-        //         .mul_mod(input[231], PRIME)
-        //         .add_mod(input[147], PRIME)
-        //         .add_mod(PRIME.wrapping_sub(input[17]), PRIME)
-        //         .mul_mod(den_invs[4], PRIME);
-
-        //     res = res.add_mod(val.mul_mod(alpha_pows[41], PRIME), PRIME);
-        // }
-        // {
-        //     let lhs = input[17]
-        //         .add_mod(PRIME.wrapping_sub(input[153]), PRIME)
-        //         .mul_mod(input[233], PRIME);
-
-        //     let rhs = input[17]
-        //         .add_mod(PRIME.wrapping_sub(input[151]), PRIME)
-        //         .mul_mod(input[231], PRIME);
-
-        //     let val = lhs
-        //         .add_mod(PRIME.wrapping_sub(rhs), PRIME)
-        //         .mul_mod(domains[23], PRIME);
-
-        //     res = Self::res_val_constraint(res, val, den_invs[7], alpha_pows[42]);
-        // }
-
-        // res = Self::res_val_constraint(
-        //     res,
-        //     input[231].add_mod(PRIME.wrapping_sub(input[18]), PRIME),
-        //     den_invs[8],
-        //     alpha_pows[43],
-        // );
-
-        // // let diff = composition_poly[21]; // 0x1fe0 = 255
-
-        // res = res.add_mod(
-        //     Self::flag_constraint(composition_poly[21], domains[23], den_invs[7])
-        //         .mul_mod(alpha_pows[44], PRIME),
-        //     PRIME,
-        // );
-
-        // {
-        //     let val = input[149] // column6_row2
-        //         .add_mod(PRIME.wrapping_sub(input[19]), PRIME) // range_check_min
-        //         .mul_mod(den_invs[4], PRIME);
-        //     // res += val * alpha ** 45.
-        //     res = res.add_mod(val.mul_mod(alpha_pows[45], PRIME), PRIME);
-        // }
-        // {
-        //     let val = input[149]
-        //         .add_mod(PRIME.wrapping_sub(input[20]), PRIME)
-        //         .mul_mod(den_invs[8], PRIME);
-
-        //     res = res.add_mod(val.mul_mod(alpha_pows[46], PRIME), PRIME);
-        // }
-        // {
-        //     let val = input[21]
-        //         .add_mod(PRIME.wrapping_sub(input[89]), PRIME)
-        //         .mul_mod(input[228], PRIME)
-        //         .add_mod(input[58], PRIME)
-        //         .add_mod(PRIME.wrapping_sub(input[21]), PRIME);
-
-        //     res = Self::res_val_constraint(res, val, den_invs[4], alpha_pows[47]);
-        // }
-        // {
-        //     let lhs = input[21]
-        //         .add_mod(PRIME.wrapping_sub(input[90]), PRIME)
-        //         .mul_mod(input[229], PRIME);
-
-        //     let rhs = input[21]
-        //         .add_mod(PRIME.wrapping_sub(input[59]), PRIME)
-        //         .mul_mod(input[228], PRIME);
-
-        //     let val = lhs
-        //         .add_mod(PRIME.wrapping_sub(rhs), PRIME)
-        //         .mul_mod(domains[24], PRIME);
-
-        //     res = Self::res_val_constraint(res, val, den_invs[0], alpha_pows[48]);
-        // }
-
-        // // let val = input[226]
-        // //     .add_mod(PRIME.wrapping_sub(U256::ONE), PRIME)
-        // //     .mul_mod(den_invs[4], PRIME);
-
-        // // res = res.add_mod(val.mul_mod(alpha_pows[50], PRIME), PRIME);
-
-        // // res = res.add_mod(val.mul_mod(alpha_pows[51], PRIME), PRIME);
-        // res = Self::res_val_const_with_sub(
-        //     input[89],
-        //     input[23],
-        //     den_invs[4],
-        //     alpha_pows[51],
-        //     Self::res_val_const_with_sub(
-        //         input[226],
-        //         U256::ONE,
-        //         den_invs[4],
-        //         alpha_pows[50],
-        //         Self::res_val_const_with_sub(
-        //             input[228],
-        //             input[22],
-        //             den_invs[9],
-        //             alpha_pows[49],
-        //             res,
-        //         ),
-        //     ),
-        // );
-
-        // {
-        //     let diff = input[90].add_mod(PRIME.wrapping_sub(input[89]), PRIME);
-
-        //     let sub_term = PRIME.wrapping_sub(
-        //         input[226]
-        //             .mul_mod(
-        //                 U256::ONE.add_mod(input[24].mul_mod(diff, PRIME), PRIME),
-        //                 PRIME,
-        //             )
-        //             .add_mod(input[25].mul_mod(diff, PRIME).mul_mod(diff, PRIME), PRIME),
-        //     );
-        //     let val = input[227]
-        //         .add_mod(sub_term, PRIME)
-        //         .mul_mod(domains[24], PRIME);
-        //     // res += val * alpha ** 52.
-        //     res = Self::res_val_constraint(res, val, den_invs[0], alpha_pows[52]);
-        // }
-
-        // res = Self::res_val_const_with_sub(input[226], input[26], den_invs[9], alpha_pows[53], res);
-
-        // {
-        //     let val = input[185].mul_mod(
-        //         input[169].add_mod(
-        //             PRIME.wrapping_sub(input[173].add_mod(input[173], PRIME)),
-        //             PRIME,
-        //         ),
-        //         PRIME,
-        //     );
-
-        //     res = Self::res_val_constraint(res, val, den_invs[10], alpha_pows[54]);
-        // }
-        // {
-        //     let val = input[185]
-        //         .mul_mod(
-        //             input[173].add_mod(
-        //                 PRIME.wrapping_sub(
-        //                     uint!(3138550867693340381917894711603833208051177722232017256448_U256)
-        //                         .mul_mod(input[186], PRIME),
-        //                 ),
-        //                 PRIME,
-        //             ),
-        //             PRIME,
-        //         )
-        //         .mul_mod(den_invs[10], PRIME);
-        //     // res += val * alpha ** 55.
-        //     res = res.add_mod(val.mul_mod(alpha_pows[55], PRIME), PRIME);
-        // }
-
-        // res = Self::res_val_const_with_sub(
-        //     input[185],
-        //     input[192].mul_mod(
-        //         input[186].add_mod(
-        //             PRIME.wrapping_sub(input[187].add_mod(input[187], PRIME)),
-        //             PRIME,
-        //         ),
-        //         PRIME,
-        //     ),
-        //     den_invs[10],
-        //     alpha_pows[56],
-        //     res,
-        // );
-
-        // {
-        //     let val = input[192].mul_mod(
-        //         input[187].add_mod(
-        //             PRIME.wrapping_sub(U256::from(8).mul_mod(input[188], PRIME)),
-        //             PRIME,
-        //         ),
-        //         PRIME,
-        //     );
-
-        //     res = Self::res_val_constraint(res, val, den_invs[10], alpha_pows[57]);
-        // }
-        // {
-        //     let diff_1004_1008 = input[190].add_mod(
-        //         PRIME.wrapping_sub(input[191].add_mod(input[191], PRIME)),
-        //         PRIME,
-        //     );
-        //     let diff_784_788 = input[188].add_mod(
-        //         PRIME.wrapping_sub(input[189].add_mod(input[189], PRIME)),
-        //         PRIME,
-        //     );
-
-        //     res = Self::res_val_const_with_sub(
-        //         input[192],
-        //         diff_1004_1008.mul_mod(diff_784_788, PRIME),
-        //         den_invs[10],
-        //         alpha_pows[58],
-        //         res,
-        //     );
-        // }
-        // {
-        //     let val = input[190]
-        //         .add_mod(
-        //             PRIME.wrapping_sub(input[191].add_mod(input[191], PRIME)),
-        //             PRIME,
-        //         )
-        //         .mul_mod(
-        //             input[189].add_mod(
-        //                 PRIME.wrapping_sub(
-        //                     U256::from(18014398509481984u64).mul_mod(input[190], PRIME),
-        //                 ),
-        //                 PRIME,
-        //             ),
-        //             PRIME,
-        //         );
-        //     // res += val * alpha ** 60.
-        //     res = Self::res_val_constraint(res, val, den_invs[10], alpha_pows[59]);
-        // }
-
-        // // res += val * alpha ** 60.
-        // res = res.add_mod(
-        //     composition_poly[22]
-        //         .mul_mod(
-        //             composition_poly[22].add_mod(PRIME.wrapping_sub(U256::ONE), PRIME),
-        //             PRIME,
-        //         )
-        //         .mul_mod(domains[16], PRIME)
-        //         .mul_mod(den_invs[7], PRIME)
-        //         .mul_mod(alpha_pows[60], PRIME),
-        //     PRIME,
-        // );
-
-        // res = Self::res_val_constraint(
-        //     Self::res_val_constraint(res, input[169], den_invs[12], alpha_pows[61]),
-        //     input[169],
-        //     den_invs[11],
-        //     alpha_pows[62],
-        // );
-
-        // {
-        //     // res += val * alpha ** 63.
-        //     let val = composition_poly[22]
-        //         .mul_mod(
-        //             input[150].add_mod(PRIME.wrapping_sub(input[1]), PRIME),
-        //             PRIME,
-        //         )
-        //         .add_mod(
-        //             PRIME.wrapping_sub(input[171].mul_mod(
-        //                 input[148].add_mod(PRIME.wrapping_sub(input[0]), PRIME),
-        //                 PRIME,
-        //             )),
-        //             PRIME,
-        //         )
-        //         .mul_mod(domains[16], PRIME);
-        //     // res = res.add_mod(val.mul_mod(alpha_pows[63], PRIME)    , PRIME);
-        //     res = Self::res_val_constraint(res, val, den_invs[7], alpha_pows[63]);
-        // }
-        // {
-        //     // res += val * alpha ** 64.
-        //     let lhs = input[171].mul_mod(input[171], PRIME);
-        //     let rhs = composition_poly[22].mul_mod(
-        //         input[148]
-        //             .add_mod(input[0], PRIME)
-        //             .add_mod(input[152], PRIME),
-        //         PRIME,
-        //     );
-        //     let val = lhs
-        //         .add_mod(PRIME.wrapping_sub(rhs), PRIME)
-        //         .mul_mod(domains[16], PRIME);
-        //     res = Self::res_val_constraint(res, val, den_invs[7], alpha_pows[64]);
-        // }
-        // {
-        //     // res += val * alpha ** 65.
-        //     let lhs = composition_poly[22].mul_mod(input[150].add_mod(input[154], PRIME), PRIME);
-        //     let rhs = input[171].mul_mod(
-        //         input[148].add_mod(PRIME.wrapping_sub(input[152]), PRIME),
-        //         PRIME,
-        //     );
-        //     let val = lhs
-        //         .add_mod(PRIME.wrapping_sub(rhs), PRIME)
-        //         .mul_mod(domains[16], PRIME);
-        //     res = Self::res_val_constraint(res, val, den_invs[7], alpha_pows[65]);
-        // }
-        // {
-        //     // res += val * alpha ** 66.
-        //     let val = composition_poly[23]
-        //         .mul_mod(
-        //             input[152].add_mod(PRIME.wrapping_sub(input[148]), PRIME),
-        //             PRIME,
-        //         )
-        //         .mul_mod(domains[16], PRIME);
-        //     res = Self::res_val_constraint(res, val, den_invs[7], alpha_pows[66]);
-        // }
-        // {
-        //     // res += val * alpha ** 67.
-        //     let val = composition_poly[23]
-        //         .mul_mod(
-        //             input[154].add_mod(PRIME.wrapping_sub(input[150]), PRIME),
-        //             PRIME,
-        //         )
-        //         .mul_mod(domains[16], PRIME);
-        //     res = Self::res_val_constraint(res, val, den_invs[7], alpha_pows[67]);
-        // }
-        // {
-        //     // res += val * alpha ** 68.
-        //     let val = input[166]
-        //         .add_mod(PRIME.wrapping_sub(input[164]), PRIME)
-        //         .mul_mod(domains[18], PRIME);
-        //     res = Self::res_val_constraint(res, val, den_invs[10], alpha_pows[68]);
-        // }
-        // {
-        //     // res += val * alpha ** 69.
-        //     let val = input[167]
-        //         .add_mod(PRIME.wrapping_sub(input[165]), PRIME)
-        //         .mul_mod(domains[18], PRIME);
-        //     res = Self::res_val_constraint(res, val, den_invs[10], alpha_pows[69]);
-        // }
-
-        // res = Self::res_val_const_with_sub(
-        //     input[102],
-        //     input[169],
-        //     den_invs[13],
-        //     alpha_pows[72],
-        //     Self::res_val_const_with_sub(
-        //         input[150],
-        //         input[28],
-        //         den_invs[13],
-        //         alpha_pows[71],
-        //         Self::res_val_const_with_sub(
-        //             input[148],
-        //             input[27],
-        //             den_invs[13],
-        //             alpha_pows[70],
-        //             res,
-        //         ),
-        //     ),
-        // );
-        // {
-        //     // res += val * alpha ** 73.
-        //     let val = input[132]
-        //         .add_mod(
-        //             PRIME.wrapping_sub(input[128].add_mod(U256::ONE, PRIME)),
-        //             PRIME,
-        //         )
-        //         .mul_mod(domains[25], PRIME);
-        //     // res = res.add_mod(val.mul_mod(alpha_pows[73], PRIME), PRIME);
-        //     res = Self::res_val_constraint(res, val, den_invs[13], alpha_pows[73]);
-        // }
-
-        // // res += val * alpha ** 75.
-        // // let val = input[131]
-        // //     .add_mod(PRIME.wrapping_sub(input[193]), PRIME);
-        // // .mul_mod(den_invs[13], PRIME);
-        // // res = res.add_mod(val.mul_mod(alpha_pows[75], PRIME), PRIME);
-        // res = Self::res_val_const_with_sub(
-        //     input[131],
-        //     input[193],
-        //     den_invs[13],
-        //     alpha_pows[75],
-        //     Self::res_val_const_with_sub(input[101], input[29], den_invs[4], alpha_pows[74], res),
-        // );
-
-        // // res += val * alpha ** 77.
-        // // let val = input[129]
-        // //     .add_mod(PRIME.wrapping_sub(input[168]), PRIME)
-        // //     .mul_mod(den_invs[13], PRIME);
-        // // res = res.add_mod(val.mul_mod(alpha_pows[77], PRIME), PRIME);
-        // res = Self::res_val_const_with_sub(
-        //     input[129],
-        //     input[168],
-        //     den_invs[13],
-        //     alpha_pows[77],
-        //     Self::res_val_const_with_sub(
-        //         input[130],
-        //         input[101].add_mod(U256::ONE, PRIME),
-        //         den_invs[13],
-        //         alpha_pows[76],
-        //         res,
-        //     ),
-        // );
-
-        // res = Self::res_val_const_with_sub(
-        //     composition_poly[31],
-        //     input[118],
-        //     den_invs[14],
-        //     alpha_pows[79],
-        //     Self::res_val_const_with_sub(
-        //         input[128],
-        //         input[130].add_mod(U256::ONE, PRIME),
-        //         den_invs[13],
-        //         alpha_pows[78],
-        //         res,
-        //     ),
-        // );
-
-        // {
-        //     // res += val * alpha ** 80.
-        //     let val = input[127]
-        //         .add_mod(
-        //             PRIME.wrapping_sub(input[117].add_mod(U256::ONE, PRIME)),
-        //             PRIME,
-        //         )
-        //         .mul_mod(domains[26], PRIME)
-        //         .mul_mod(den_invs[14], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[80], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 81.
-        //     let val = input[117]
-        //         .add_mod(PRIME.wrapping_sub(input[30]), PRIME)
-        //         .mul_mod(den_invs[4], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[81], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 82.
-        //     let val = input[108]
-        //         .add_mod(PRIME.wrapping_sub(input[31]), PRIME)
-        //         .mul_mod(den_invs[4], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[82], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 83.
-        //     let val = input[114]
-        //         .add_mod(
-        //             PRIME.wrapping_sub(input[108].add_mod(U256::ONE, PRIME)),
-        //             PRIME,
-        //         )
-        //         .mul_mod(domains[9], PRIME)
-        //         .mul_mod(den_invs[15], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[83], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 84.
-        //     let val = input[112]
-        //         .add_mod(
-        //             PRIME.wrapping_sub(input[124].add_mod(U256::ONE, PRIME)),
-        //             PRIME,
-        //         )
-        //         .mul_mod(den_invs[14], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[84], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 85.
-        //     let val = input[126]
-        //         .add_mod(
-        //             PRIME.wrapping_sub(input[112].add_mod(U256::ONE, PRIME)),
-        //             PRIME,
-        //         )
-        //         .mul_mod(domains[26], PRIME)
-        //         .mul_mod(den_invs[14], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[85], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 86.
-        //     let val = composition_poly[32]
-        //         .add_mod(composition_poly[33], PRIME)
-        //         .add_mod(PRIME.wrapping_sub(input[109]), PRIME)
-        //         .mul_mod(den_invs[15], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[86], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 87.
-        //     let val = input[113]
-        //         .add_mod(
-        //             PRIME.wrapping_sub(input[121].add_mod(input[125], PRIME)),
-        //             PRIME,
-        //         )
-        //         .mul_mod(den_invs[14], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[87], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 88.
-        //     let val = input[58]
-        //         .add_mod(input[75], PRIME)
-        //         .add_mod(
-        //             PRIME.wrapping_sub(
-        //                 input[83].add_mod(input[77].add_mod(input[77], PRIME), PRIME),
-        //             ),
-        //             PRIME,
-        //         )
-        //         .mul_mod(den_invs[16], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[88], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 89.
-        //     let val = (input[79]
-        //         .add_mod(input[85], PRIME)
-        //         .mul_mod(U256::from(16), PRIME))
-        //     .add_mod(PRIME.wrapping_sub(input[59]), PRIME)
-        //     .mul_mod(den_invs[14], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[89], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 90.
-        //     let val = (input[80] + input[86])
-        //         .mul_mod(U256::from(16), PRIME)
-        //         .add_mod(PRIME.wrapping_sub(input[78]), PRIME)
-        //         .mul_mod(den_invs[14], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[90], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 91.
-        //     let val = (input[81] + input[87])
-        //         .mul_mod(U256::from(16), PRIME)
-        //         .add_mod(PRIME.wrapping_sub(input[76]), PRIME)
-        //         .mul_mod(den_invs[14], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[91], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 92.
-        //     let val = (input[82] + input[88])
-        //         .mul_mod(U256::from(256), PRIME)
-        //         .add_mod(PRIME.wrapping_sub(input[84]), PRIME)
-        //         .mul_mod(den_invs[14], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[92], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 93.
-        //     let val = input[97]
-        //         .add_mod(PRIME.wrapping_sub(input[32]), PRIME)
-        //         .mul_mod(den_invs[4], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[93], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 94.
-        //     let val = input[115]
-        //         .add_mod(
-        //             PRIME.wrapping_sub(input[97].add_mod(U256::from(3), PRIME)),
-        //             PRIME,
-        //         )
-        //         .mul_mod(domains[27], PRIME)
-        //         .mul_mod(den_invs[17], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[94], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 95.
-        //     let val = input[110]
-        //         .add_mod(
-        //             PRIME.wrapping_sub(input[32].add_mod(U256::ONE, PRIME)),
-        //             PRIME,
-        //         )
-        //         .mul_mod(den_invs[4], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[95], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 96.
-        //     let val = input[122]
-        //         .add_mod(
-        //             PRIME.wrapping_sub(input[110].add_mod(U256::from(3), PRIME)),
-        //             PRIME,
-        //         )
-        //         .mul_mod(domains[27], PRIME)
-        //         .mul_mod(den_invs[17], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[96], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 97.
-        //     let val = input[106]
-        //         .add_mod(
-        //             PRIME.wrapping_sub(input[32].add_mod(U256::from(2), PRIME)),
-        //             PRIME,
-        //         )
-        //         .mul_mod(den_invs[4], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[97], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 98.
-        //     let val = input[119]
-        //         .add_mod(
-        //             PRIME.wrapping_sub(input[106].add_mod(U256::from(3), PRIME)),
-        //             PRIME,
-        //         )
-        //         .mul_mod(domains[27], PRIME)
-        //         .mul_mod(den_invs[17], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[98], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 99.
-        //     let val = input[199]
-        //         .mul_mod(input[199], PRIME)
-        //         .add_mod(PRIME.wrapping_sub(input[201]), PRIME)
-        //         .mul_mod(den_invs[2], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[99], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 100.
-        //     let val = input[205]
-        //         .mul_mod(input[205], PRIME)
-        //         .add_mod(PRIME.wrapping_sub(input[198]), PRIME)
-        //         .mul_mod(den_invs[2], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[100], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 101.
-        //     let val = input[195]
-        //         .mul_mod(input[195], PRIME)
-        //         .add_mod(PRIME.wrapping_sub(input[204]), PRIME)
-        //         .mul_mod(den_invs[2], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[101], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 102.
-        //     let val = input[137]
-        //         .mul_mod(input[137], PRIME)
-        //         .add_mod(PRIME.wrapping_sub(input[138]), PRIME)
-        //         .mul_mod(den_invs[5], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[102], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 103.
-        //     let val = input[170]
-        //         .mul_mod(input[170], PRIME)
-        //         .add_mod(PRIME.wrapping_sub(input[172]), PRIME)
-        //         .mul_mod(domains[12], PRIME)
-        //         .mul_mod(den_invs[7], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[103], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 104.
-        //     let val = input[98]
-        //         .add_mod(
-        //             uint!(2950795762459345168613727575620414179244544320470208355568817838579231751791_U256),
-        //             PRIME,
-        //         )
-        //         .add_mod(PRIME.wrapping_sub(input[199]), PRIME)
-        //         .mul_mod(den_invs[14], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[104], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 105.
-        //     let val = input[111]
-        //         .add_mod(
-        //             uint!(1587446564224215276866294500450702039420286416111469274423465069420553242820_U256),
-        //             PRIME,
-        //         )
-        //         .add_mod(PRIME.wrapping_sub(input[205]), PRIME)
-        //         .mul_mod(den_invs[14], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[105], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 106.
-        //     let val = input[107]
-        //         .add_mod(
-        //             uint!(1645965921169490687904413452218868659025437693527479459426157555728339600137_U256),
-        //             PRIME,
-        //         )
-        //         .add_mod(PRIME.wrapping_sub(input[195]), PRIME)
-        //         .mul_mod(den_invs[14], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[106], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 107.
-        //     let val = input[208]
-        //         .add_mod(
-        //             PRIME.wrapping_sub(
-        //                 composition_poly[34]
-        //                     .add_mod(composition_poly[34], PRIME)
-        //                     .add_mod(composition_poly[34], PRIME)
-        //                     .add_mod(composition_poly[35], PRIME)
-        //                     .add_mod(composition_poly[36], PRIME)
-        //                     .add_mod(input[2], PRIME),
-        //             ),
-        //             PRIME,
-        //         )
-        //         .mul_mod(domains[7], PRIME)
-        //         .mul_mod(den_invs[2], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[107], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 108.
-        //     let val = input[210]
-        //         .add_mod(composition_poly[35], PRIME)
-        //         .add_mod(
-        //             PRIME.wrapping_sub(
-        //                 composition_poly[34]
-        //                     .add_mod(composition_poly[36], PRIME)
-        //                     .add_mod(input[3], PRIME),
-        //             ),
-        //             PRIME,
-        //         )
-        //         .mul_mod(domains[7], PRIME)
-        //         .mul_mod(den_invs[2], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[108], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 109.
-        //     let val = input[207]
-        //         .add_mod(composition_poly[36], PRIME)
-        //         .add_mod(composition_poly[36], PRIME)
-        //         .add_mod(
-        //             PRIME.wrapping_sub(
-        //                 composition_poly[34]
-        //                     .add_mod(composition_poly[35], PRIME)
-        //                     .add_mod(input[4], PRIME),
-        //             ),
-        //             PRIME,
-        //         )
-        //         .mul_mod(domains[7], PRIME)
-        //         .mul_mod(den_invs[2], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[109], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 110.
-        //     let val: U256 = input[116]
-        //         .add_mod(
-        //             PRIME.wrapping_sub(
-        //                 composition_poly[37]
-        //                     .add_mod(composition_poly[37], PRIME)
-        //                     .add_mod(composition_poly[37], PRIME)
-        //                     .add_mod(composition_poly[38], PRIME)
-        //                     .add_mod(composition_poly[39], PRIME),
-        //             ),
-        //             PRIME,
-        //         )
-        //         .mul_mod(den_invs[14], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[110], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 111.
-        //     let val = input[123]
-        //         .add_mod(composition_poly[38], PRIME)
-        //         .add_mod(
-        //             PRIME.wrapping_sub(composition_poly[37].add_mod(composition_poly[39], PRIME)),
-        //             PRIME,
-        //         )
-        //         .mul_mod(den_invs[14], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[111], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 112.
-        //     let val = input[120]
-        //         .add_mod(composition_poly[39], PRIME)
-        //         .add_mod(composition_poly[39], PRIME)
-        //         .add_mod(
-        //             PRIME.wrapping_sub(composition_poly[37].add_mod(composition_poly[38], PRIME)),
-        //             PRIME,
-        //         )
-        //         .mul_mod(den_invs[14], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[112], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 113.
-        //     let val = input[144]
-        //         .add_mod(PRIME.wrapping_sub(input[170]), PRIME)
-        //         .mul_mod(den_invs[14], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[113], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 114.
-        //     let val = input[145]
-        //         .add_mod(PRIME.wrapping_sub(input[174]), PRIME)
-        //         .mul_mod(den_invs[14], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[114], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 115.
-        //     let val = input[146]
-        //         .add_mod(PRIME.wrapping_sub(input[176]), PRIME)
-        //         .mul_mod(den_invs[14], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[115], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 116.
-        //     let val = input[137]
-        //         .add_mod(composition_poly[42], PRIME)
-        //         .add_mod(composition_poly[42], PRIME)
-        //         .add_mod(
-        //             PRIME.wrapping_sub(
-        //                 composition_poly[40].add_mod(composition_poly[41], PRIME)
-        //                     .add_mod(
-        //                         uint!(2121140748740143694053732746913428481442990369183417228688865837805149503386_U256),
-        //                         PRIME,
-        //                     )
-        //             ),
-        //             PRIME,
-        //         )
-        //         .mul_mod(den_invs[14], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[116], PRIME), PRIME);
-        // }
-
-        // {
-        //     // res += val * alpha ** 117.
-        //     let val = input[139]
-        //         .add_mod(
-        //             PRIME - (
-        //                 uint!(3618502788666131213697322783095070105623107215331596699973092056135872020477_U256)
-        //                     .mul_mod(composition_poly[41], PRIME)
-        //                     .add_mod(
-        //                         U256::from(10).mul_mod(composition_poly[42], PRIME),
-        //                         PRIME,
-        //                     )
-        //                     .add_mod(
-        //                         U256::from(4).mul_mod(input[137], PRIME),
-        //                         PRIME,
-        //                     )
-        //                     .add_mod(
-        //                         uint!(3618502788666131213697322783095070105623107215331596699973092056135872020479_U256)
-        //                             .mul_mod(composition_poly[43], PRIME),
-        //                         PRIME,
-        //                     )
-        //                     .add_mod(
-        //                         uint!(2006642341318481906727563724340978325665491359415674592697055778067937914672_U256),
-        //                         PRIME,
-        //                     )
-        //             ),
-        //             PRIME,
-        //         )
-        //         .mul_mod(den_invs[14], PRIME);
-
-        //     res = res.add_mod(val.mul_mod(alpha_pows[117], PRIME), PRIME);
-        // }
-        // {
-        //     // res += val * alpha ** 118.
-        //     let val = input[141].add_mod(
-        //         PRIME.wrapping_sub(
-        //             uint!(8_U256).mul_mod(composition_poly[42], PRIME)
-        //                 .add_mod(uint!(4_U256).mul_mod(input[137], PRIME), PRIME)
-        //                 .add_mod(uint!(6_U256).mul_mod(composition_poly[43], PRIME), PRIME)
-        //                 .add_mod(input[139], PRIME)
-        //                 .add_mod(input[139], PRIME)
-        //                 .add_mod(
-        //                     uint!(3618502788666131213697322783095070105623107215331596699973092056135872020479_U256)
-        //                         .mul_mod(composition_poly[44], PRIME),
-        //                     PRIME,
-        //                 )
-        //                 .add_mod(
-        //                     uint!(427751140904099001132521606468025610873158555767197326325930641757709538586_U256),
-        //                     PRIME,
-        //                 ),
-        //         ),
-        //         PRIME,
-        //     )
-        //     .mul_mod(den_invs[14], PRIME);
-
-        //     res = res.add_mod(val.mul_mod(alpha_pows[118], PRIME), PRIME);
-        // }
-
-        // {
-        //     // res += val * alpha ** 119.
-        //     let val = input[143].add_mod(
-        //         PRIME.wrapping_sub(
-        //             uint!(8_U256).mul_mod(composition_poly[43], PRIME)
-        //                 .add_mod(uint!(4_U256).mul_mod(input[139], PRIME), PRIME)
-        //                 .add_mod(uint!(6_U256).mul_mod(composition_poly[44], PRIME), PRIME)
-        //                 .add_mod(input[141], PRIME)
-        //                 .add_mod(input[141], PRIME)
-        //                 .add_mod(
-        //                     uint!(3618502788666131213697322783095070105623107215331596699973092056135872020479_U256)
-        //                         .mul_mod(composition_poly[45], PRIME),
-        //                     PRIME,
-        //                 )
-        //                 .add_mod(input[5], PRIME), // periodic_column/poseidon/poseidon/partial_round_key0
-        //         ),
-        //         PRIME,
-        //     )
-        //     .mul_mod(domains[13], PRIME)
-        //     .mul_mod(den_invs[5], PRIME);
-
-        //     res = res.add_mod(val.mul_mod(alpha_pows[119], PRIME), PRIME);
-        // }
-        // {
-        //     // poseidon/poseidon/partial_round1 (α^120)
-        //     let val = input[178].add_mod(
-        //         PRIME.wrapping_sub(
-        //             uint!(8_U256).mul_mod(composition_poly[46], PRIME)
-        //                 .add_mod(uint!(4_U256).mul_mod(input[174], PRIME), PRIME)
-        //                 .add_mod(uint!(6_U256).mul_mod(composition_poly[47], PRIME), PRIME)
-        //                 .add_mod(input[176], PRIME)
-        //                 .add_mod(input[176], PRIME)
-        //                 .add_mod(
-        //                     uint!(3618502788666131213697322783095070105623107215331596699973092056135872020479_U256)
-        //                         .mul_mod(composition_poly[48], PRIME),
-        //                     PRIME,
-        //                 )
-        //                 .add_mod(input[6], PRIME),
-        //         ),
-        //         PRIME,
-        //     )
-        //     .mul_mod(domains[14], PRIME)
-        //     .mul_mod(den_invs[7], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[120], PRIME), PRIME);
-
-        //     // poseidon/poseidon/margin_partial_to_full0 (α^121)
-        //     let val = input[218].add_mod(
-        //         PRIME.wrapping_sub(
-        //             uint!(16_U256).mul_mod(composition_poly[49], PRIME)
-        //                 .add_mod(uint!(8_U256).mul_mod(input[181], PRIME), PRIME)
-        //                 .add_mod(uint!(16_U256).mul_mod(composition_poly[50], PRIME), PRIME)
-        //                 .add_mod(uint!(6_U256).mul_mod(input[183], PRIME), PRIME)
-        //                 .add_mod(composition_poly[51], PRIME)
-        //                 .add_mod(
-        //                     uint!(560279373700919169769089400651532183647886248799764942664266404650165812023_U256),
-        //                     PRIME,
-        //                 ),
-        //         ),
-        //         PRIME,
-        //     )
-        //     .mul_mod(den_invs[14], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[121], PRIME), PRIME);
-
-        //     // poseidon/poseidon/margin_partial_to_full1 (α^122)
-        //     let val = input[219].add_mod(
-        //         PRIME.wrapping_sub(
-        //             uint!(4_U256).mul_mod(composition_poly[50], PRIME)
-        //                 .add_mod(input[183], PRIME)
-        //                 .add_mod(input[183], PRIME)
-        //                 .add_mod(composition_poly[51], PRIME)
-        //                 .add_mod(
-        //                     uint!(1401754474293352309994371631695783042590401941592571735921592823982231996415_U256),
-        //                     PRIME,
-        //                 ),
-        //         ),
-        //         PRIME,
-        //     )
-        //     .mul_mod(den_invs[14], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[122], PRIME), PRIME);
-
-        //     // poseidon/poseidon/margin_partial_to_full2 (α^123)
-        //     let val = input[217].add_mod(
-        //         PRIME.wrapping_sub(
-        //             uint!(8_U256).mul_mod(composition_poly[49], PRIME)
-        //                 .add_mod(uint!(4_U256).mul_mod(input[181], PRIME), PRIME)
-        //                 .add_mod(uint!(6_U256).mul_mod(composition_poly[50], PRIME), PRIME)
-        //                 .add_mod(input[183], PRIME)
-        //                 .add_mod(input[183], PRIME)
-        //                 .add_mod(
-        //                     uint!(3618502788666131213697322783095070105623107215331596699973092056135872020479_U256)
-        //                         .mul_mod(composition_poly[51], PRIME),
-        //                     PRIME,
-        //                 )
-        //                 .add_mod(
-        //                     uint!(1246177936547655338400308396717835700699368047388302793172818304164989556526_U256),
-        //                     PRIME,
-        //                 ),
-
-        //         ),
-        //         PRIME,
-        //     )
-        //     .mul_mod(den_invs[14], PRIME);
-        //     res = res.add_mod(val.mul_mod(alpha_pows[123], PRIME), PRIME);
-        // }
-        // Ok(res)
+        let input: &[U256] = &calldata_words[..234];
+        let composition_poly: &[U256] = &calldata_words[234..286];
+        let domains: &[U256] = &calldata_words[286..];
+
+        let den_invs = Self::denominator_invs(&domains)?;
+        let mut res: U256 = U256::ZERO;
+        let mut val: U256 = U256::ZERO;
+        let mut alpha_pows = [U256::ONE; 124];
+        for i in 1..124 {
+            alpha_pows[i] = alpha_pows[i - 1].mul_mod(input[41], PRIME);
+        }
+        res = res
+            .add_mod(
+                Self::flag_constraint(composition_poly[0], domains[3], den_invs[0])
+                    .mul_mod(alpha_pows[0], PRIME),
+                PRIME,
+            )
+            .add_mod(
+                input[42]
+                    .mul_mod(den_invs[1], PRIME)
+                    .mul_mod(alpha_pows[1], PRIME),
+                PRIME,
+            );
+
+        {
+            val = input[92] // column3_row1 @ 0xb80
+                .add_mod(
+                    PRIME.wrapping_sub(
+                        input[42] // column0_row0 @ 0x540
+                            .mul_mod(input[8], PRIME) // offset_size @ 0x100
+                            .add_mod(input[151], PRIME) // column6_row4 @ 0x12e0
+                            .mul_mod(input[8], PRIME)
+                            .add_mod(input[155], PRIME) // column6_row8 @ 0x1360
+                            .mul_mod(input[8], PRIME)
+                            .add_mod(input[147], PRIME), // column6_row0 @ 0x1260
+                    ),
+                    PRIME,
+                )
+                .mul_mod(den_invs[2], PRIME) // denominator: point^(trace_length / 16) - 1
+                // Multiply by alpha^2
+                .mul_mod(alpha_pows[2], PRIME);
+
+            // Accumulate result
+            res = res.add_mod(val, PRIME);
+        }
+        // Accumulate into result with current alpha power
+        res = res
+            .add_mod(
+                Self::flag_constraint(composition_poly[4], den_invs[2], alpha_pows[3]),
+                PRIME,
+            )
+            .add_mod(
+                Self::flag_constraint(composition_poly[8], den_invs[2], alpha_pows[4]),
+                PRIME,
+            )
+            .add_mod(
+                Self::flag_constraint(composition_poly[11], den_invs[2], alpha_pows[5]),
+                PRIME,
+            )
+            .add_mod(
+                Self::flag_constraint(composition_poly[14], den_invs[2], alpha_pows[6]),
+                PRIME,
+            );
+
+        // Constraint expression for cpu/operands/mem_dst_addr:
+        // val = input[99] + input[9] - (composition_poly[0] * input[200] + (1 - composition_poly[0]) * input[194] + input[147])
+        val = input[99].add_mod(input[9], PRIME).add_mod(
+            PRIME.wrapping_sub(
+                composition_poly[0]
+                    .mul_mod(input[200], PRIME)
+                    .add_mod(
+                        U256::ONE
+                            .add_mod(PRIME.wrapping_sub(composition_poly[0]), PRIME)
+                            .mul_mod(input[194], PRIME),
+                        PRIME,
+                    )
+                    .add_mod(input[147], PRIME),
+            ),
+            PRIME,
+        );
+
+        // res += val * alpha^7
+        res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[7]);
+
+        val = input[95].add_mod(input[9], PRIME).add_mod(
+            PRIME.wrapping_sub(
+                composition_poly[15]
+                    .mul_mod(input[200], PRIME)
+                    .add_mod(
+                        U256::ONE
+                            .add_mod(PRIME.wrapping_sub(composition_poly[15]), PRIME)
+                            .mul_mod(input[194], PRIME),
+                        PRIME,
+                    )
+                    .add_mod(input[155], PRIME),
+            ),
+            PRIME,
+        );
+
+        // res += val * alpha^8
+        res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[8]);
+
+        val = input[103].add_mod(input[9], PRIME).add_mod(
+            PRIME.wrapping_sub(
+                composition_poly[1]
+                    .mul_mod(input[91], PRIME)
+                    .add_mod(composition_poly[2].mul_mod(input[194], PRIME), PRIME)
+                    .add_mod(composition_poly[3].mul_mod(input[200], PRIME), PRIME)
+                    .add_mod(composition_poly[4].mul_mod(input[96], PRIME), PRIME)
+                    .add_mod(input[151], PRIME),
+            ),
+            PRIME,
+        );
+
+        // res += val * alpha^9
+        res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[9]);
+
+        val = input[197].add_mod(
+            PRIME.wrapping_sub(input[96].mul_mod(input[104], PRIME)),
+            PRIME,
+        );
+
+        res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[10]);
+
+        // cpu/operands/res
+        // (1 - bit_9) * col8_row12 - (bit_5 * (col3_row5 + col3_row13) + bit_6 * col8_row4 + flag_res_op1_0 * col3_row13)
+        val = U256::ONE
+            .add_mod(PRIME.wrapping_sub(composition_poly[7]), PRIME)
+            .mul_mod(input[203], PRIME)
+            .add_mod(
+                PRIME.wrapping_sub(
+                    composition_poly[5]
+                        .mul_mod(input[96].add_mod(input[104], PRIME), PRIME)
+                        .add_mod(composition_poly[6].mul_mod(input[197], PRIME), PRIME)
+                        .add_mod(composition_poly[8].mul_mod(input[104], PRIME), PRIME),
+                ),
+                PRIME,
+            );
+
+        // res += val * alpha ** 11.
+        res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[11]);
+
+        // Constraint: col8_row2 - bit_9 * col3_row9
+        val = input[196]
+            .add_mod(
+                PRIME.wrapping_sub(composition_poly[7].mul_mod(input[100], PRIME)),
+                PRIME,
+            )
+            .mul_mod(domains[20], PRIME);
+        // res += val * alpha ** 12.
+        res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[12]);
+        {
+            // Constraint: column8_row10 - column8_row2 * column8_row12
+            val = input[202]
+                .add_mod(
+                    PRIME.wrapping_sub(input[196].mul_mod(input[203], PRIME)),
+                    PRIME,
+                )
+                .mul_mod(domains[20], PRIME);
+
+            // res += val * alpha^13
+            res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[13]);
+        }
+        {
+            // Intermediate values
+            let one_minus_bit_9 = U256::ONE.add_mod(PRIME.wrapping_sub(composition_poly[7]), PRIME); // 0x1e20
+
+            let diff_16_minus_sum_0_13 = input[105].add_mod(
+                // 0xd20
+                PRIME.wrapping_sub(
+                    input[91].add_mod(input[104], PRIME), // input[91] = 0xb60, input[104] = 0xd00
+                ),
+                PRIME,
+            );
+
+            let left = one_minus_bit_9
+                .mul_mod(input[105], PRIME) // 0xd20
+                .add_mod(
+                    input[196].mul_mod(diff_16_minus_sum_0_13, PRIME), // input[196] = 0x1880
+                    PRIME,
+                );
+
+            let right = composition_poly[11]
+                .mul_mod(composition_poly[16], PRIME) // 0x1ea0 * 0x1f40
+                .add_mod(
+                    composition_poly[9].mul_mod(input[203], PRIME), // 0x1e60 * 0x1960
+                    PRIME,
+                )
+                .add_mod(
+                    composition_poly[10].mul_mod(
+                        input[91].add_mod(input[203], PRIME), // 0xb60 + 0x1960
+                        PRIME,
+                    ),
+                    PRIME,
+                );
+
+            res = Self::res_val_constraint(
+                res,
+                left.add_mod(PRIME.wrapping_sub(right), PRIME)
+                    .mul_mod(domains[20], PRIME),
+                den_invs[2],
+                alpha_pows[14],
+            );
+        }
+
+        // res += val * alpha^15
+        res = res.add_mod(
+            input[202]
+                .add_mod(PRIME.wrapping_sub(composition_poly[7]), PRIME)
+                .mul_mod(
+                    input[105].add_mod(PRIME.wrapping_sub(composition_poly[16]), PRIME),
+                    PRIME,
+                )
+                .mul_mod(domains[20], PRIME)
+                .mul_mod(den_invs[2], PRIME)
+                .mul_mod(alpha_pows[15], PRIME),
+            PRIME,
+        );
+        {
+            // val = column8_row16 - (column8_row0 + bit10 * column8_row12 + bit11 + bit12 * 2)
+            let term = input[194]
+                .add_mod(composition_poly[17].mul_mod(input[203], PRIME), PRIME)
+                .add_mod(composition_poly[18], PRIME)
+                .add_mod(composition_poly[12].mul_mod(U256::from(2), PRIME), PRIME);
+
+            let val = input[206]
+                .add_mod(PRIME.wrapping_sub(term), PRIME)
+                .mul_mod(domains[20], PRIME)
+                .mul_mod(den_invs[2], PRIME);
+
+            res = res.add_mod(val.mul_mod(alpha_pows[16], PRIME), PRIME);
+        }
+
+        // val = column8_row24 - (fp_update_regular_0 * column8_row8 + bit13 * column3_row9 + bit12 * (column8_row0 + 2))
+        res = res.add_mod(
+            input[209]
+                .add_mod(
+                    PRIME.wrapping_sub(
+                        composition_poly[14]
+                            .mul_mod(input[200], PRIME)
+                            .add_mod(composition_poly[13].mul_mod(input[100], PRIME), PRIME)
+                            .add_mod(
+                                composition_poly[12]
+                                    .mul_mod(input[194].add_mod(U256::from(2), PRIME), PRIME),
+                                PRIME,
+                            ),
+                    ),
+                    PRIME,
+                )
+                .mul_mod(domains[20], PRIME)
+                .mul_mod(den_invs[2], PRIME)
+                .mul_mod(alpha_pows[17], PRIME),
+            PRIME,
+        );
+
+        // val = bit_12 * (column3_row9 - column8_row8)
+
+        res = Self::res_val_constraint(
+            res,
+            composition_poly[12].mul_mod(
+                input[100].add_mod(PRIME.wrapping_sub(input[200]), PRIME),
+                PRIME,
+            ),
+            den_invs[2],
+            alpha_pows[18],
+        );
+
+        // val = bit_12 * (column3_row5 - (column3_row0 + bit_2 + 1))
+
+        val = composition_poly[12].mul_mod(
+            input[96].add_mod(
+                PRIME.wrapping_sub(
+                    input[91]
+                        .add_mod(composition_poly[1], PRIME)
+                        .add_mod(U256::ONE, PRIME),
+                ),
+                PRIME,
+            ),
+            PRIME,
+        );
+
+        // res += val * alpha ** 19.
+        res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[19]);
+
+        val = composition_poly[12].mul_mod(
+            input[147].add_mod(PRIME.wrapping_sub(input[9]), PRIME),
+            PRIME,
+        );
+
+        res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[20]);
+
+        val = composition_poly[12].mul_mod(
+            input[155].add_mod(
+                PRIME.wrapping_sub(input[9].add_mod(U256::ONE, PRIME)),
+                PRIME,
+            ),
+            PRIME,
+        );
+
+        res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[21]);
+
+        val = composition_poly[12].mul_mod(
+            composition_poly[12]
+                .add_mod(composition_poly[12], PRIME)
+                .add_mod(U256::from(1), PRIME)
+                .add_mod(U256::from(1), PRIME)
+                .add_mod(
+                    PRIME.wrapping_sub(
+                        composition_poly[0]
+                            .add_mod(composition_poly[15], PRIME)
+                            .add_mod(U256::from(4), PRIME),
+                    ),
+                    PRIME,
+                ),
+            PRIME,
+        );
+        // res += val * alpha ** 22.
+        res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[22]);
+
+        res = Self::res_val_constraint(
+            res,
+            composition_poly[13].mul_mod(
+                input[147]
+                    .add_mod(U256::from(2), PRIME)
+                    .add_mod(PRIME.wrapping_sub(input[9]), PRIME),
+                PRIME,
+            ),
+            den_invs[2],
+            alpha_pows[23],
+        );
+
+        {
+            let val = composition_poly[13].mul_mod(
+                input[151]
+                    .add_mod(U256::from(1), PRIME)
+                    .add_mod(PRIME.wrapping_sub(input[9]), PRIME),
+                PRIME,
+            );
+
+            res = Self::res_val_constraint(res, val, den_invs[2], alpha_pows[24]);
+        }
+        {
+            let sum = composition_poly[9]
+                .add_mod(composition_poly[0], PRIME)
+                .add_mod(composition_poly[3], PRIME)
+                .add_mod(composition_poly[8], PRIME)
+                .add_mod(PRIME.wrapping_sub(U256::from(4)), PRIME);
+
+            res = Self::res_val_constraint(
+                res,
+                composition_poly[13].mul_mod(sum, PRIME),
+                den_invs[2],
+                alpha_pows[25],
+            );
+        }
+
+        res = Self::res_val_constraint(
+            res,
+            composition_poly[19].mul_mod(
+                input[100].add_mod(PRIME.wrapping_sub(input[203]), PRIME),
+                PRIME,
+            ),
+            den_invs[2],
+            alpha_pows[26],
+        );
+
+        res = Self::res_val_constraint(
+            res,
+            input[194].add_mod(PRIME.wrapping_sub(input[10]), PRIME),
+            den_invs[4],
+            alpha_pows[27],
+        );
+
+        res = Self::res_val_constraint(
+            res,
+            input[200].add_mod(PRIME.wrapping_sub(input[10]), PRIME),
+            den_invs[4],
+            alpha_pows[28],
+        );
+
+        {
+            res = res.add_mod(
+                input[91]
+                    .add_mod(PRIME.wrapping_sub(input[11]), PRIME)
+                    .mul_mod(den_invs[4], PRIME)
+                    .mul_mod(alpha_pows[29], PRIME),
+                PRIME,
+            );
+        }
+
+        // res += val * alpha ** 30.
+        res = res.add_mod(
+            input[194]
+                .add_mod(PRIME.wrapping_sub(input[12]), PRIME)
+                .mul_mod(den_invs[3], PRIME)
+                .mul_mod(alpha_pows[30], PRIME),
+            PRIME,
+        );
+
+        // res += val * alpha ** 31.
+        res = res.add_mod(
+            input[200]
+                .add_mod(PRIME.wrapping_sub(input[10]), PRIME)
+                .mul_mod(den_invs[3], PRIME)
+                .mul_mod(alpha_pows[31], PRIME),
+            PRIME,
+        );
+
+        // res += val * alpha ** 32.
+        res = res.add_mod(
+            input[91]
+                .add_mod(PRIME.wrapping_sub(input[13]), PRIME)
+                .mul_mod(den_invs[3], PRIME)
+                .mul_mod(alpha_pows[32], PRIME),
+            PRIME,
+        );
+        {
+            let term1 = input[14].add_mod(
+                PRIME.wrapping_sub(input[133].add_mod(input[15].mul_mod(input[134], PRIME), PRIME)),
+                PRIME,
+            );
+
+            let val = term1
+                .mul_mod(input[230], PRIME)
+                .add_mod(input[91], PRIME)
+                .add_mod(input[15].mul_mod(input[92], PRIME), PRIME)
+                .add_mod(PRIME.wrapping_sub(input[14]), PRIME);
+
+            // res += val * alpha ** 33.
+            res = Self::res_val_constraint(res, val, den_invs[4], alpha_pows[33]);
+        }
+        {
+            let term1 = input[14].add_mod(
+                PRIME.wrapping_sub(input[135].add_mod(input[15].mul_mod(input[136], PRIME), PRIME)),
+                PRIME,
+            );
+
+            let term2 = input[14].add_mod(
+                PRIME.wrapping_sub(input[93].add_mod(input[15].mul_mod(input[94], PRIME), PRIME)),
+                PRIME,
+            );
+
+            let val = term1
+                .mul_mod(input[232], PRIME)
+                .add_mod(PRIME.wrapping_sub(term2.mul_mod(input[230], PRIME)), PRIME);
+
+            res = Self::res_val_constraint(
+                res,
+                val.mul_mod(domains[22], PRIME),
+                den_invs[5],
+                alpha_pows[34],
+            );
+        }
+        {
+            let val = input[230].add_mod(PRIME.wrapping_sub(input[16]), PRIME);
+
+            res = Self::res_val_constraint(res, val, den_invs[6], alpha_pows[35]);
+        }
+        {
+            val = composition_poly[20]
+                .mul_mod(composition_poly[20], PRIME)
+                .add_mod(PRIME.wrapping_sub(composition_poly[20]), PRIME)
+                .mul_mod(domains[22], PRIME);
+            // res += val * alpha ** 36.
+            // res = res.add_mod(val.mul_mod(alpha_pows[36], PRIME), PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[5], alpha_pows[36]);
+        }
+        {
+            //06185fe9960b9c13158b8394c6428cb4c4957440fb05f151aa2b53de8a57367d
+            let val = composition_poly[20]
+                .add_mod(PRIME.wrapping_sub(U256::from(1)), PRIME)
+                .mul_mod(
+                    input[134].add_mod(PRIME.wrapping_sub(input[136]), PRIME),
+                    PRIME,
+                )
+                .mul_mod(domains[22], PRIME)
+                .mul_mod(den_invs[5], PRIME);
+            // res += val * alpha ** 37.
+            res = res.add_mod(val.mul_mod(alpha_pows[37], PRIME), PRIME);
+        }
+
+        // res += val * alpha ** 38.
+
+        res = Self::res_val_constraint(
+            Self::res_val_constraint(
+                res,
+                input[133].add_mod(PRIME.wrapping_sub(U256::from(1)), PRIME),
+                den_invs[4],
+                alpha_pows[38],
+            ),
+            input[93],
+            den_invs[2],
+            alpha_pows[39],
+        );
+
+        res = Self::res_val_constraint(res, input[94], den_invs[2], alpha_pows[40]);
+
+        {
+            let val = input[17]
+                .add_mod(PRIME.wrapping_sub(input[149]), PRIME)
+                .mul_mod(input[231], PRIME)
+                .add_mod(input[147], PRIME)
+                .add_mod(PRIME.wrapping_sub(input[17]), PRIME)
+                .mul_mod(den_invs[4], PRIME);
+
+            res = res.add_mod(val.mul_mod(alpha_pows[41], PRIME), PRIME);
+        }
+        {
+            let lhs = input[17]
+                .add_mod(PRIME.wrapping_sub(input[153]), PRIME)
+                .mul_mod(input[233], PRIME);
+
+            let rhs = input[17]
+                .add_mod(PRIME.wrapping_sub(input[151]), PRIME)
+                .mul_mod(input[231], PRIME);
+
+            let val = lhs
+                .add_mod(PRIME.wrapping_sub(rhs), PRIME)
+                .mul_mod(domains[23], PRIME);
+
+            res = Self::res_val_constraint(res, val, den_invs[7], alpha_pows[42]);
+        }
+
+        res = Self::res_val_constraint(
+            res,
+            input[231].add_mod(PRIME.wrapping_sub(input[18]), PRIME),
+            den_invs[8],
+            alpha_pows[43],
+        );
+
+        // let diff = composition_poly[21]; // 0x1fe0 = 255
+
+        res = res.add_mod(
+            Self::flag_constraint(composition_poly[21], domains[23], den_invs[7])
+                .mul_mod(alpha_pows[44], PRIME),
+            PRIME,
+        );
+
+        {
+            let val = input[149] // column6_row2
+                .add_mod(PRIME.wrapping_sub(input[19]), PRIME) // range_check_min
+                .mul_mod(den_invs[4], PRIME);
+            // res += val * alpha ** 45.
+            res = res.add_mod(val.mul_mod(alpha_pows[45], PRIME), PRIME);
+        }
+        {
+            let val = input[149]
+                .add_mod(PRIME.wrapping_sub(input[20]), PRIME)
+                .mul_mod(den_invs[8], PRIME);
+
+            res = res.add_mod(val.mul_mod(alpha_pows[46], PRIME), PRIME);
+        }
+        {
+            let val = input[21]
+                .add_mod(PRIME.wrapping_sub(input[89]), PRIME)
+                .mul_mod(input[228], PRIME)
+                .add_mod(input[58], PRIME)
+                .add_mod(PRIME.wrapping_sub(input[21]), PRIME);
+
+            res = Self::res_val_constraint(res, val, den_invs[4], alpha_pows[47]);
+        }
+        {
+            let lhs = input[21]
+                .add_mod(PRIME.wrapping_sub(input[90]), PRIME)
+                .mul_mod(input[229], PRIME);
+
+            let rhs = input[21]
+                .add_mod(PRIME.wrapping_sub(input[59]), PRIME)
+                .mul_mod(input[228], PRIME);
+
+            let val = lhs
+                .add_mod(PRIME.wrapping_sub(rhs), PRIME)
+                .mul_mod(domains[24], PRIME);
+
+            res = Self::res_val_constraint(res, val, den_invs[0], alpha_pows[48]);
+        }
+
+        // let val = input[226]
+        //     .add_mod(PRIME.wrapping_sub(U256::ONE), PRIME)
+        //     .mul_mod(den_invs[4], PRIME);
+
+        // res = res.add_mod(val.mul_mod(alpha_pows[50], PRIME), PRIME);
+
+        // res = res.add_mod(val.mul_mod(alpha_pows[51], PRIME), PRIME);
+        res = Self::res_val_const_with_sub(
+            input[89],
+            input[23],
+            den_invs[4],
+            alpha_pows[51],
+            Self::res_val_const_with_sub(
+                input[226],
+                U256::ONE,
+                den_invs[4],
+                alpha_pows[50],
+                Self::res_val_const_with_sub(
+                    input[228],
+                    input[22],
+                    den_invs[9],
+                    alpha_pows[49],
+                    res,
+                ),
+            ),
+        );
+
+        {
+            let diff = input[90].add_mod(PRIME.wrapping_sub(input[89]), PRIME);
+
+            let sub_term = PRIME.wrapping_sub(
+                input[226]
+                    .mul_mod(
+                        U256::ONE.add_mod(input[24].mul_mod(diff, PRIME), PRIME),
+                        PRIME,
+                    )
+                    .add_mod(input[25].mul_mod(diff, PRIME).mul_mod(diff, PRIME), PRIME),
+            );
+            let val = input[227]
+                .add_mod(sub_term, PRIME)
+                .mul_mod(domains[24], PRIME);
+            // res += val * alpha ** 52.
+            res = Self::res_val_constraint(res, val, den_invs[0], alpha_pows[52]);
+        }
+
+        res = Self::res_val_const_with_sub(input[226], input[26], den_invs[9], alpha_pows[53], res);
+
+        {
+            let val = input[185].mul_mod(
+                input[169].add_mod(
+                    PRIME.wrapping_sub(input[173].add_mod(input[173], PRIME)),
+                    PRIME,
+                ),
+                PRIME,
+            );
+
+            res = Self::res_val_constraint(res, val, den_invs[10], alpha_pows[54]);
+        }
+        {
+            let val = input[185]
+                .mul_mod(
+                    input[173].add_mod(
+                        PRIME.wrapping_sub(
+                            uint!(3138550867693340381917894711603833208051177722232017256448_U256)
+                                .mul_mod(input[186], PRIME),
+                        ),
+                        PRIME,
+                    ),
+                    PRIME,
+                )
+                .mul_mod(den_invs[10], PRIME);
+            // res += val * alpha ** 55.
+            res = res.add_mod(val.mul_mod(alpha_pows[55], PRIME), PRIME);
+        }
+
+        res = Self::res_val_const_with_sub(
+            input[185],
+            input[192].mul_mod(
+                input[186].add_mod(
+                    PRIME.wrapping_sub(input[187].add_mod(input[187], PRIME)),
+                    PRIME,
+                ),
+                PRIME,
+            ),
+            den_invs[10],
+            alpha_pows[56],
+            res,
+        );
+
+        {
+            let val = input[192].mul_mod(
+                input[187].add_mod(
+                    PRIME.wrapping_sub(U256::from(8).mul_mod(input[188], PRIME)),
+                    PRIME,
+                ),
+                PRIME,
+            );
+
+            res = Self::res_val_constraint(res, val, den_invs[10], alpha_pows[57]);
+        }
+        {
+            let diff_1004_1008 = input[190].add_mod(
+                PRIME.wrapping_sub(input[191].add_mod(input[191], PRIME)),
+                PRIME,
+            );
+            let diff_784_788 = input[188].add_mod(
+                PRIME.wrapping_sub(input[189].add_mod(input[189], PRIME)),
+                PRIME,
+            );
+
+            res = Self::res_val_const_with_sub(
+                input[192],
+                diff_1004_1008.mul_mod(diff_784_788, PRIME),
+                den_invs[10],
+                alpha_pows[58],
+                res,
+            );
+        }
+        {
+            let val = input[190]
+                .add_mod(
+                    PRIME.wrapping_sub(input[191].add_mod(input[191], PRIME)),
+                    PRIME,
+                )
+                .mul_mod(
+                    input[189].add_mod(
+                        PRIME.wrapping_sub(
+                            U256::from(18014398509481984u64).mul_mod(input[190], PRIME),
+                        ),
+                        PRIME,
+                    ),
+                    PRIME,
+                );
+            // res += val * alpha ** 60.
+            res = Self::res_val_constraint(res, val, den_invs[10], alpha_pows[59]);
+        }
+
+        // res += val * alpha ** 60.
+        res = res.add_mod(
+            composition_poly[22]
+                .mul_mod(
+                    composition_poly[22].add_mod(PRIME.wrapping_sub(U256::ONE), PRIME),
+                    PRIME,
+                )
+                .mul_mod(domains[16], PRIME)
+                .mul_mod(den_invs[7], PRIME)
+                .mul_mod(alpha_pows[60], PRIME),
+            PRIME,
+        );
+
+        res = Self::res_val_constraint(
+            Self::res_val_constraint(res, input[169], den_invs[12], alpha_pows[61]),
+            input[169],
+            den_invs[11],
+            alpha_pows[62],
+        );
+
+        {
+            // res += val * alpha ** 63.
+            let val = composition_poly[22]
+                .mul_mod(
+                    input[150].add_mod(PRIME.wrapping_sub(input[1]), PRIME),
+                    PRIME,
+                )
+                .add_mod(
+                    PRIME.wrapping_sub(input[171].mul_mod(
+                        input[148].add_mod(PRIME.wrapping_sub(input[0]), PRIME),
+                        PRIME,
+                    )),
+                    PRIME,
+                )
+                .mul_mod(domains[16], PRIME);
+            // res = res.add_mod(val.mul_mod(alpha_pows[63], PRIME)    , PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[7], alpha_pows[63]);
+        }
+        {
+            // res += val * alpha ** 64.
+            let lhs = input[171].mul_mod(input[171], PRIME);
+            let rhs = composition_poly[22].mul_mod(
+                input[148]
+                    .add_mod(input[0], PRIME)
+                    .add_mod(input[152], PRIME),
+                PRIME,
+            );
+            let val = lhs
+                .add_mod(PRIME.wrapping_sub(rhs), PRIME)
+                .mul_mod(domains[16], PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[7], alpha_pows[64]);
+        }
+        {
+            // res += val * alpha ** 65.
+            let lhs = composition_poly[22].mul_mod(input[150].add_mod(input[154], PRIME), PRIME);
+            let rhs = input[171].mul_mod(
+                input[148].add_mod(PRIME.wrapping_sub(input[152]), PRIME),
+                PRIME,
+            );
+            let val = lhs
+                .add_mod(PRIME.wrapping_sub(rhs), PRIME)
+                .mul_mod(domains[16], PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[7], alpha_pows[65]);
+        }
+        {
+            // res += val * alpha ** 66.
+            let val = composition_poly[23]
+                .mul_mod(
+                    input[152].add_mod(PRIME.wrapping_sub(input[148]), PRIME),
+                    PRIME,
+                )
+                .mul_mod(domains[16], PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[7], alpha_pows[66]);
+        }
+        {
+            // res += val * alpha ** 67.
+            let val = composition_poly[23]
+                .mul_mod(
+                    input[154].add_mod(PRIME.wrapping_sub(input[150]), PRIME),
+                    PRIME,
+                )
+                .mul_mod(domains[16], PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[7], alpha_pows[67]);
+        }
+        {
+            // res += val * alpha ** 68.
+            let val = input[166]
+                .add_mod(PRIME.wrapping_sub(input[164]), PRIME)
+                .mul_mod(domains[18], PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[10], alpha_pows[68]);
+        }
+        {
+            // res += val * alpha ** 69.
+            let val = input[167]
+                .add_mod(PRIME.wrapping_sub(input[165]), PRIME)
+                .mul_mod(domains[18], PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[10], alpha_pows[69]);
+        }
+
+        res = Self::res_val_const_with_sub(
+            input[102],
+            input[169],
+            den_invs[13],
+            alpha_pows[72],
+            Self::res_val_const_with_sub(
+                input[150],
+                input[28],
+                den_invs[13],
+                alpha_pows[71],
+                Self::res_val_const_with_sub(
+                    input[148],
+                    input[27],
+                    den_invs[13],
+                    alpha_pows[70],
+                    res,
+                ),
+            ),
+        );
+        {
+            // res += val * alpha ** 73.
+            let val = input[132]
+                .add_mod(
+                    PRIME.wrapping_sub(input[128].add_mod(U256::ONE, PRIME)),
+                    PRIME,
+                )
+                .mul_mod(domains[25], PRIME);
+            // res = res.add_mod(val.mul_mod(alpha_pows[73], PRIME), PRIME);
+            res = Self::res_val_constraint(res, val, den_invs[13], alpha_pows[73]);
+        }
+
+        // res += val * alpha ** 75.
+        // let val = input[131]
+        //     .add_mod(PRIME.wrapping_sub(input[193]), PRIME);
+        // .mul_mod(den_invs[13], PRIME);
+        // res = res.add_mod(val.mul_mod(alpha_pows[75], PRIME), PRIME);
+        res = Self::res_val_const_with_sub(
+            input[131],
+            input[193],
+            den_invs[13],
+            alpha_pows[75],
+            Self::res_val_const_with_sub(input[101], input[29], den_invs[4], alpha_pows[74], res),
+        );
+
+        // res += val * alpha ** 77.
+        // let val = input[129]
+        //     .add_mod(PRIME.wrapping_sub(input[168]), PRIME)
+        //     .mul_mod(den_invs[13], PRIME);
+        // res = res.add_mod(val.mul_mod(alpha_pows[77], PRIME), PRIME);
+        res = Self::res_val_const_with_sub(
+            input[129],
+            input[168],
+            den_invs[13],
+            alpha_pows[77],
+            Self::res_val_const_with_sub(
+                input[130],
+                input[101].add_mod(U256::ONE, PRIME),
+                den_invs[13],
+                alpha_pows[76],
+                res,
+            ),
+        );
+
+        res = Self::res_val_const_with_sub(
+            composition_poly[31],
+            input[118],
+            den_invs[14],
+            alpha_pows[79],
+            Self::res_val_const_with_sub(
+                input[128],
+                input[130].add_mod(U256::ONE, PRIME),
+                den_invs[13],
+                alpha_pows[78],
+                res,
+            ),
+        );
+
+        {
+            // res += val * alpha ** 80.
+            let val = input[127]
+                .add_mod(
+                    PRIME.wrapping_sub(input[117].add_mod(U256::ONE, PRIME)),
+                    PRIME,
+                )
+                .mul_mod(domains[26], PRIME)
+                .mul_mod(den_invs[14], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[80], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 81.
+            let val = input[117]
+                .add_mod(PRIME.wrapping_sub(input[30]), PRIME)
+                .mul_mod(den_invs[4], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[81], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 82.
+            let val = input[108]
+                .add_mod(PRIME.wrapping_sub(input[31]), PRIME)
+                .mul_mod(den_invs[4], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[82], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 83.
+            let val = input[114]
+                .add_mod(
+                    PRIME.wrapping_sub(input[108].add_mod(U256::ONE, PRIME)),
+                    PRIME,
+                )
+                .mul_mod(domains[9], PRIME)
+                .mul_mod(den_invs[15], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[83], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 84.
+            let val = input[112]
+                .add_mod(
+                    PRIME.wrapping_sub(input[124].add_mod(U256::ONE, PRIME)),
+                    PRIME,
+                )
+                .mul_mod(den_invs[14], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[84], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 85.
+            let val = input[126]
+                .add_mod(
+                    PRIME.wrapping_sub(input[112].add_mod(U256::ONE, PRIME)),
+                    PRIME,
+                )
+                .mul_mod(domains[26], PRIME)
+                .mul_mod(den_invs[14], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[85], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 86.
+            let val = composition_poly[32]
+                .add_mod(composition_poly[33], PRIME)
+                .add_mod(PRIME.wrapping_sub(input[109]), PRIME)
+                .mul_mod(den_invs[15], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[86], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 87.
+            let val = input[113]
+                .add_mod(
+                    PRIME.wrapping_sub(input[121].add_mod(input[125], PRIME)),
+                    PRIME,
+                )
+                .mul_mod(den_invs[14], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[87], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 88.
+            let val = input[58]
+                .add_mod(input[75], PRIME)
+                .add_mod(
+                    PRIME.wrapping_sub(
+                        input[83].add_mod(input[77].add_mod(input[77], PRIME), PRIME),
+                    ),
+                    PRIME,
+                )
+                .mul_mod(den_invs[16], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[88], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 89.
+            let val = (input[79]
+                .add_mod(input[85], PRIME)
+                .mul_mod(U256::from(16), PRIME))
+            .add_mod(PRIME.wrapping_sub(input[59]), PRIME)
+            .mul_mod(den_invs[14], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[89], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 90.
+            let val = (input[80] + input[86])
+                .mul_mod(U256::from(16), PRIME)
+                .add_mod(PRIME.wrapping_sub(input[78]), PRIME)
+                .mul_mod(den_invs[14], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[90], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 91.
+            let val = (input[81] + input[87])
+                .mul_mod(U256::from(16), PRIME)
+                .add_mod(PRIME.wrapping_sub(input[76]), PRIME)
+                .mul_mod(den_invs[14], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[91], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 92.
+            let val = (input[82] + input[88])
+                .mul_mod(U256::from(256), PRIME)
+                .add_mod(PRIME.wrapping_sub(input[84]), PRIME)
+                .mul_mod(den_invs[14], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[92], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 93.
+            let val = input[97]
+                .add_mod(PRIME.wrapping_sub(input[32]), PRIME)
+                .mul_mod(den_invs[4], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[93], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 94.
+            let val = input[115]
+                .add_mod(
+                    PRIME.wrapping_sub(input[97].add_mod(U256::from(3), PRIME)),
+                    PRIME,
+                )
+                .mul_mod(domains[27], PRIME)
+                .mul_mod(den_invs[17], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[94], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 95.
+            let val = input[110]
+                .add_mod(
+                    PRIME.wrapping_sub(input[32].add_mod(U256::ONE, PRIME)),
+                    PRIME,
+                )
+                .mul_mod(den_invs[4], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[95], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 96.
+            let val = input[122]
+                .add_mod(
+                    PRIME.wrapping_sub(input[110].add_mod(U256::from(3), PRIME)),
+                    PRIME,
+                )
+                .mul_mod(domains[27], PRIME)
+                .mul_mod(den_invs[17], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[96], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 97.
+            let val = input[106]
+                .add_mod(
+                    PRIME.wrapping_sub(input[32].add_mod(U256::from(2), PRIME)),
+                    PRIME,
+                )
+                .mul_mod(den_invs[4], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[97], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 98.
+            let val = input[119]
+                .add_mod(
+                    PRIME.wrapping_sub(input[106].add_mod(U256::from(3), PRIME)),
+                    PRIME,
+                )
+                .mul_mod(domains[27], PRIME)
+                .mul_mod(den_invs[17], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[98], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 99.
+            let val = input[199]
+                .mul_mod(input[199], PRIME)
+                .add_mod(PRIME.wrapping_sub(input[201]), PRIME)
+                .mul_mod(den_invs[2], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[99], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 100.
+            let val = input[205]
+                .mul_mod(input[205], PRIME)
+                .add_mod(PRIME.wrapping_sub(input[198]), PRIME)
+                .mul_mod(den_invs[2], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[100], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 101.
+            let val = input[195]
+                .mul_mod(input[195], PRIME)
+                .add_mod(PRIME.wrapping_sub(input[204]), PRIME)
+                .mul_mod(den_invs[2], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[101], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 102.
+            let val = input[137]
+                .mul_mod(input[137], PRIME)
+                .add_mod(PRIME.wrapping_sub(input[138]), PRIME)
+                .mul_mod(den_invs[5], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[102], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 103.
+            let val = input[170]
+                .mul_mod(input[170], PRIME)
+                .add_mod(PRIME.wrapping_sub(input[172]), PRIME)
+                .mul_mod(domains[12], PRIME)
+                .mul_mod(den_invs[7], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[103], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 104.
+            let val = input[98]
+                .add_mod(
+                    uint!(2950795762459345168613727575620414179244544320470208355568817838579231751791_U256),
+                    PRIME,
+                )
+                .add_mod(PRIME.wrapping_sub(input[199]), PRIME)
+                .mul_mod(den_invs[14], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[104], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 105.
+            let val = input[111]
+                .add_mod(
+                    uint!(1587446564224215276866294500450702039420286416111469274423465069420553242820_U256),
+                    PRIME,
+                )
+                .add_mod(PRIME.wrapping_sub(input[205]), PRIME)
+                .mul_mod(den_invs[14], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[105], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 106.
+            let val = input[107]
+                .add_mod(
+                    uint!(1645965921169490687904413452218868659025437693527479459426157555728339600137_U256),
+                    PRIME,
+                )
+                .add_mod(PRIME.wrapping_sub(input[195]), PRIME)
+                .mul_mod(den_invs[14], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[106], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 107.
+            let val = input[208]
+                .add_mod(
+                    PRIME.wrapping_sub(
+                        composition_poly[34]
+                            .add_mod(composition_poly[34], PRIME)
+                            .add_mod(composition_poly[34], PRIME)
+                            .add_mod(composition_poly[35], PRIME)
+                            .add_mod(composition_poly[36], PRIME)
+                            .add_mod(input[2], PRIME),
+                    ),
+                    PRIME,
+                )
+                .mul_mod(domains[7], PRIME)
+                .mul_mod(den_invs[2], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[107], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 108.
+            let val = input[210]
+                .add_mod(composition_poly[35], PRIME)
+                .add_mod(
+                    PRIME.wrapping_sub(
+                        composition_poly[34]
+                            .add_mod(composition_poly[36], PRIME)
+                            .add_mod(input[3], PRIME),
+                    ),
+                    PRIME,
+                )
+                .mul_mod(domains[7], PRIME)
+                .mul_mod(den_invs[2], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[108], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 109.
+            let val = input[207]
+                .add_mod(composition_poly[36], PRIME)
+                .add_mod(composition_poly[36], PRIME)
+                .add_mod(
+                    PRIME.wrapping_sub(
+                        composition_poly[34]
+                            .add_mod(composition_poly[35], PRIME)
+                            .add_mod(input[4], PRIME),
+                    ),
+                    PRIME,
+                )
+                .mul_mod(domains[7], PRIME)
+                .mul_mod(den_invs[2], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[109], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 110.
+            let val: U256 = input[116]
+                .add_mod(
+                    PRIME.wrapping_sub(
+                        composition_poly[37]
+                            .add_mod(composition_poly[37], PRIME)
+                            .add_mod(composition_poly[37], PRIME)
+                            .add_mod(composition_poly[38], PRIME)
+                            .add_mod(composition_poly[39], PRIME),
+                    ),
+                    PRIME,
+                )
+                .mul_mod(den_invs[14], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[110], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 111.
+            let val = input[123]
+                .add_mod(composition_poly[38], PRIME)
+                .add_mod(
+                    PRIME.wrapping_sub(composition_poly[37].add_mod(composition_poly[39], PRIME)),
+                    PRIME,
+                )
+                .mul_mod(den_invs[14], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[111], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 112.
+            let val = input[120]
+                .add_mod(composition_poly[39], PRIME)
+                .add_mod(composition_poly[39], PRIME)
+                .add_mod(
+                    PRIME.wrapping_sub(composition_poly[37].add_mod(composition_poly[38], PRIME)),
+                    PRIME,
+                )
+                .mul_mod(den_invs[14], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[112], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 113.
+            let val = input[144]
+                .add_mod(PRIME.wrapping_sub(input[170]), PRIME)
+                .mul_mod(den_invs[14], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[113], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 114.
+            let val = input[145]
+                .add_mod(PRIME.wrapping_sub(input[174]), PRIME)
+                .mul_mod(den_invs[14], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[114], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 115.
+            let val = input[146]
+                .add_mod(PRIME.wrapping_sub(input[176]), PRIME)
+                .mul_mod(den_invs[14], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[115], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 116.
+            let val = input[137]
+                .add_mod(composition_poly[42], PRIME)
+                .add_mod(composition_poly[42], PRIME)
+                .add_mod(
+                    PRIME.wrapping_sub(
+                        composition_poly[40].add_mod(composition_poly[41], PRIME)
+                            .add_mod(
+                                uint!(2121140748740143694053732746913428481442990369183417228688865837805149503386_U256),
+                                PRIME,
+                            )
+                    ),
+                    PRIME,
+                )
+                .mul_mod(den_invs[14], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[116], PRIME), PRIME);
+        }
+
+        {
+            // res += val * alpha ** 117.
+            let val = input[139]
+                .add_mod(
+                    PRIME - (
+                        uint!(3618502788666131213697322783095070105623107215331596699973092056135872020477_U256)
+                            .mul_mod(composition_poly[41], PRIME)
+                            .add_mod(
+                                U256::from(10).mul_mod(composition_poly[42], PRIME),
+                                PRIME,
+                            )
+                            .add_mod(
+                                U256::from(4).mul_mod(input[137], PRIME),
+                                PRIME,
+                            )
+                            .add_mod(
+                                uint!(3618502788666131213697322783095070105623107215331596699973092056135872020479_U256)
+                                    .mul_mod(composition_poly[43], PRIME),
+                                PRIME,
+                            )
+                            .add_mod(
+                                uint!(2006642341318481906727563724340978325665491359415674592697055778067937914672_U256),
+                                PRIME,
+                            )
+                    ),
+                    PRIME,
+                )
+                .mul_mod(den_invs[14], PRIME);
+
+            res = res.add_mod(val.mul_mod(alpha_pows[117], PRIME), PRIME);
+        }
+        {
+            // res += val * alpha ** 118.
+            let val = input[141].add_mod(
+                PRIME.wrapping_sub(
+                    uint!(8_U256).mul_mod(composition_poly[42], PRIME)
+                        .add_mod(uint!(4_U256).mul_mod(input[137], PRIME), PRIME)
+                        .add_mod(uint!(6_U256).mul_mod(composition_poly[43], PRIME), PRIME)
+                        .add_mod(input[139], PRIME)
+                        .add_mod(input[139], PRIME)
+                        .add_mod(
+                            uint!(3618502788666131213697322783095070105623107215331596699973092056135872020479_U256)
+                                .mul_mod(composition_poly[44], PRIME),
+                            PRIME,
+                        )
+                        .add_mod(
+                            uint!(427751140904099001132521606468025610873158555767197326325930641757709538586_U256),
+                            PRIME,
+                        ),
+                ),
+                PRIME,
+            )
+            .mul_mod(den_invs[14], PRIME);
+
+            res = res.add_mod(val.mul_mod(alpha_pows[118], PRIME), PRIME);
+        }
+
+        {
+            // res += val * alpha ** 119.
+            let val = input[143].add_mod(
+                PRIME.wrapping_sub(
+                    uint!(8_U256).mul_mod(composition_poly[43], PRIME)
+                        .add_mod(uint!(4_U256).mul_mod(input[139], PRIME), PRIME)
+                        .add_mod(uint!(6_U256).mul_mod(composition_poly[44], PRIME), PRIME)
+                        .add_mod(input[141], PRIME)
+                        .add_mod(input[141], PRIME)
+                        .add_mod(
+                            uint!(3618502788666131213697322783095070105623107215331596699973092056135872020479_U256)
+                                .mul_mod(composition_poly[45], PRIME),
+                            PRIME,
+                        )
+                        .add_mod(input[5], PRIME), // periodic_column/poseidon/poseidon/partial_round_key0
+                ),
+                PRIME,
+            )
+            .mul_mod(domains[13], PRIME)
+            .mul_mod(den_invs[5], PRIME);
+
+            res = res.add_mod(val.mul_mod(alpha_pows[119], PRIME), PRIME);
+        }
+        {
+            // poseidon/poseidon/partial_round1 (α^120)
+            let val = input[178].add_mod(
+                PRIME.wrapping_sub(
+                    uint!(8_U256).mul_mod(composition_poly[46], PRIME)
+                        .add_mod(uint!(4_U256).mul_mod(input[174], PRIME), PRIME)
+                        .add_mod(uint!(6_U256).mul_mod(composition_poly[47], PRIME), PRIME)
+                        .add_mod(input[176], PRIME)
+                        .add_mod(input[176], PRIME)
+                        .add_mod(
+                            uint!(3618502788666131213697322783095070105623107215331596699973092056135872020479_U256)
+                                .mul_mod(composition_poly[48], PRIME),
+                            PRIME,
+                        )
+                        .add_mod(input[6], PRIME),
+                ),
+                PRIME,
+            )
+            .mul_mod(domains[14], PRIME)
+            .mul_mod(den_invs[7], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[120], PRIME), PRIME);
+
+            // poseidon/poseidon/margin_partial_to_full0 (α^121)
+            let val = input[218].add_mod(
+                PRIME.wrapping_sub(
+                    uint!(16_U256).mul_mod(composition_poly[49], PRIME)
+                        .add_mod(uint!(8_U256).mul_mod(input[181], PRIME), PRIME)
+                        .add_mod(uint!(16_U256).mul_mod(composition_poly[50], PRIME), PRIME)
+                        .add_mod(uint!(6_U256).mul_mod(input[183], PRIME), PRIME)
+                        .add_mod(composition_poly[51], PRIME)
+                        .add_mod(
+                            uint!(560279373700919169769089400651532183647886248799764942664266404650165812023_U256),
+                            PRIME,
+                        ),
+                ),
+                PRIME,
+            )
+            .mul_mod(den_invs[14], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[121], PRIME), PRIME);
+
+            // poseidon/poseidon/margin_partial_to_full1 (α^122)
+            let val = input[219].add_mod(
+                PRIME.wrapping_sub(
+                    uint!(4_U256).mul_mod(composition_poly[50], PRIME)
+                        .add_mod(input[183], PRIME)
+                        .add_mod(input[183], PRIME)
+                        .add_mod(composition_poly[51], PRIME)
+                        .add_mod(
+                            uint!(1401754474293352309994371631695783042590401941592571735921592823982231996415_U256),
+                            PRIME,
+                        ),
+                ),
+                PRIME,
+            )
+            .mul_mod(den_invs[14], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[122], PRIME), PRIME);
+
+            // poseidon/poseidon/margin_partial_to_full2 (α^123)
+            let val = input[217].add_mod(
+                PRIME.wrapping_sub(
+                    uint!(8_U256).mul_mod(composition_poly[49], PRIME)
+                        .add_mod(uint!(4_U256).mul_mod(input[181], PRIME), PRIME)
+                        .add_mod(uint!(6_U256).mul_mod(composition_poly[50], PRIME), PRIME)
+                        .add_mod(input[183], PRIME)
+                        .add_mod(input[183], PRIME)
+                        .add_mod(
+                            uint!(3618502788666131213697322783095070105623107215331596699973092056135872020479_U256)
+                                .mul_mod(composition_poly[51], PRIME),
+                            PRIME,
+                        )
+                        .add_mod(
+                            uint!(1246177936547655338400308396717835700699368047388302793172818304164989556526_U256),
+                            PRIME,
+                        ),
+
+                ),
+                PRIME,
+            )
+            .mul_mod(den_invs[14], PRIME);
+            res = res.add_mod(val.mul_mod(alpha_pows[123], PRIME), PRIME);
+        }
+        Ok(res)
     }
 }
 

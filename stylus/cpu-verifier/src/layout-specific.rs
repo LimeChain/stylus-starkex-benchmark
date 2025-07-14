@@ -1,13 +1,15 @@
 extern crate alloc;
 use alloc::vec::Vec;
-use macros::require;
+use utils::{
+    require,
+    prime_field_element0::PrimeFieldElement0
+};
 use stylus_sdk::{
-    alloy_primitives::{U256, uint, Address},
+    alloy_primitives::U256,
     prelude::*,
 };
 
 use crate::interfaces::IConstraint;
-use crate::prime_field_element0::PrimeFieldElement0;
 
 pub trait LayoutSpecific: Sized + TopLevelStorage + HostAccess {
 
@@ -31,53 +33,6 @@ pub trait LayoutSpecific: Sized + TopLevelStorage + HostAccess {
         );
         (public_memory_offset, selected_builtins)
     }
-
-    // fn layout_specific_init(ctx: &mut [U256], public_input: &[U256]) -> Result<(), Vec<u8>> {
-    //     let output_begin_addr = public_input[9];
-    //     let output_stop_ptr = public_input[10];
-    //     require!(output_begin_addr <= output_stop_ptr, "output begin_addr must be <= stop_ptr");
-    //     require!(output_stop_ptr < uint!(18446744073709551616_U256), "Out of range output stop_ptr.");
-
-    //     let n_steps = U256::from(1) << ctx[1274];
-    //     ctx[346] = public_input[11];
-    //     Self::validate_builtin_pointers(ctx[346], public_input[12], U256::from(128), U256::from(3), n_steps)?;
-
-    //     ctx[344] = uint!(2089986280348253421170679821480865132823066470938446095505822317253594081284_U256);
-    //     ctx[345] = uint!(1713931329540660377023406109199410414810705867260802078187082345529207694986_U256);
-    //     ctx[347] = public_input[13];
-    //     Self::validate_builtin_pointers(ctx[347], public_input[14], U256::from(8), U256::from(1), n_steps)?;
-
-    //     ctx[335] = U256::from(1);
-    //     ctx[348] = public_input[15];
-    //     Self::validate_builtin_pointers(ctx[348], public_input[16], U256::from(8), U256::from(5), n_steps)?;
-
-    //     ctx[339] = U256::from(1);
-    //     ctx[340] = U256::from(0);
-
-    //     ctx[349] = public_input[17];
-    //     Self::validate_builtin_pointers(ctx[349], public_input[18], U256::from(8), U256::from(6), n_steps)?;
-
-    //     Ok(())
-    // }
-
-    // fn validate_builtin_pointers(
-    //     initial_address: U256,
-    //     stop_address: U256,
-    //     builtin_ratio: U256,
-    //     cells_per_instance: U256,
-    //     n_steps: U256
-    // ) -> Result<(), Vec<u8>> {
-    //     require!(
-    //         initial_address < uint!(18446744073709551616_U256),
-    //         "Out of range begin_addr."
-    //     );
-    //     let max_stop_ptr = initial_address + cells_per_instance * Self::safe_div(n_steps, builtin_ratio)?;
-    //     require!(
-    //         initial_address <= stop_address && stop_address <= max_stop_ptr,
-    //         "Invalid stop_ptr."
-    //     );
-    //     Ok(())
-    // }
 
     fn safe_div(
         numerator: U256,
