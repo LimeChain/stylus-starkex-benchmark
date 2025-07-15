@@ -7,7 +7,7 @@ use utils::{prime_field_element0::PrimeFieldElement0, require};
 
 #[path = "interfaces.rs"]
 pub mod interfaces;
-use crate::interfaces::{ICpuOods, IFriStatementVerifier};
+use crate::interfaces::{ICpuOods, IFriStatementVerifier, IMerkleStatementVerifier};
 
 use alloy_sol_types::sol;
 use stylus_sdk::{
@@ -336,8 +336,13 @@ impl FriStatementVerifier {
         input_data.extend_from_slice(&root.as_slice());
 
         let statement: FixedBytes<32> = keccak(&input_data).into();
-        // let merkle_contract: Address = self.merkle_statement.get();
-        // require!(merkle_contract.is_valid(self, statement)?, "INVALIDATED_MERKLE_STATEMENT");
+        let merkle_statement_contract: IMerkleStatementVerifier = IMerkleStatementVerifier {
+            address: self.merkle_statement.get(),
+        };
+        require!(
+            merkle_statement_contract.is_valid(self, statement)?,
+            "INVALIDATED_MERKLE_STATEMENT"
+        );
         Ok(root)
     }
 }
