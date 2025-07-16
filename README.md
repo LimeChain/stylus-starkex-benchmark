@@ -44,6 +44,8 @@ There are a few interesting moments we found out:
 | constraint-poly-finalizer | 4_436_374 | - | - | - | - | - |
 | constraint-poly | 3_316_404 | 2_311_631 | 1_004_773(43.46% more) | 624_920 | 304_110 | +320_810(105.4% more) |
 | mpfr | 4_296_904 | 665_328 | +3_631_576(545.8% more) | 1_151_619 | 675_308 | +476_311(70.5% more) |
+| gps(full flow) |  |  |  | 7505490 | 4523567 | +2_981_923(30% more) |
+
 
 ## Specific cases
 

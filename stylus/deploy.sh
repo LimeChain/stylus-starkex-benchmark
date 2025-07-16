@@ -154,9 +154,7 @@ for name in "${contracts[@]}"; do
     elif [ "$name" == "fri-statement-verifier" ]; then
         echo "Setting addresses on $name via cast send..."
         CAST_OUT=$(cast send $fri_statement_verifier_address "init(address,address,address)" \
-            $oods_address \
-            $fri_statement_verifier_address \
-            $merkle_statement_verifier_address \
+            $oods_address $mock_provider_address $mock_provider_address \
             --rpc-url=$RPC_URL --private-key=$PK | grep "1 (success)")
         if [ -z "$CAST_OUT" ]; then
             echo "❌ Failed to call init on $fri_statement_verifier_address"

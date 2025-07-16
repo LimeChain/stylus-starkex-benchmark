@@ -18,7 +18,6 @@ tiny-keccak = { version = "2.0.0", features = ["keccak"] }
 stylus-sdk = { version = "0.8.4", default-features = false, features = [
     "mini-alloc",
 ] }
-utils = { path = "../utils" }
 
 # Motsu (持つ)  test config
 # stylus-sdk = { version = "0.8.4", default-features = false, features = [

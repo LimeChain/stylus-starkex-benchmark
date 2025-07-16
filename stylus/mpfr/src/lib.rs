@@ -17,7 +17,14 @@ use stylus_sdk::{
     prelude::*,
 };
 
-use utils::require;
+#[macro_export]
+macro_rules! require {
+    ($cond:expr, $msg:expr) => {
+        if !$cond {
+            return Err(format!($msg).as_bytes().to_vec());
+        }
+    };
+}
 
 pub trait MemoryPageFactRegistryConstants {
     const REGULAR_PAGE: [u8; 32] = U256::from_limbs([0, 0, 0, 0]).to_be_bytes();
