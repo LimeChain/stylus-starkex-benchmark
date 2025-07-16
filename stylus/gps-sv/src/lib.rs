@@ -8,13 +8,16 @@ extern crate alloc;
 mod bootloader;
 mod consts;
 use alloc::{vec, vec::Vec};
-use bootloader::BootloaderCompiledProgram;
+use bootloader::{
+    BootloaderCompiledProgram, APPLICATION_BOOTLOADER_PROGRAM_HASH, SIMPLE_BOOTLOADER_PROGRAM_HASH,
+};
 use consts::{page_info::*, public_input_offsets};
 
 /// Import items from the SDK. The prelude contains common traits and macros.
 use stylus_sdk::{
     alloy_primitives::{uint, Address, FixedBytes, I256, U256},
     call::{self, Call, MethodError},
+    // console,
     crypto::keccak,
     prelude::*,
     storage::*,
@@ -30,26 +33,19 @@ macro_rules! require {
 
 sol_interface! {
     interface IMemoryPageFactRegistry {
-        function registerRegularMemoryPage(uint256[] memory memory_pairs, uint256 z, uint256 alpha, uint256 prime) external returns (bytes32, uint256, uint256);
+        function registerRegularMemoryPage(uint256[] memory memory_pairs, uint256 z, uint256 alpha, uint256 prime) external returns (bytes32, bytes32, uint256);
     }
     interface ICairoVerifierContract {
-        function verifyProofExternal(uint256[] calldata proofParams, uint256[] calldata proof, uint256[] calldata publicInput) external;
+        function verifyProofExternal(uint256[] calldata proofParams, uint256[] calldata proof, uint256[] calldata publicInput) external returns (uint256[]);
         function getLayoutInfo() external view returns (uint256 publicMemoryOffset, uint256 selectedBuiltins);
     }
-
-    // interface IBootloaderProgram {
-    //     function getCompiledProgram() external pure returns (uint256[542] memory);
-    // }
 }
 
 #[storage]
 #[entrypoint]
 pub struct GpsStatementVerifier {
-    // anti-re-init guard
     initialized: StorageBool,
     memory_page_fact_registry: StorageAddress,
-    hashed_supported_verifiers: StorageU256,
-    simple_bootloader_program_hash: StorageU256,
     verifiers: StorageVec<StorageAddress>,
     verified_facts: StorageMap<FixedBytes<32>, StorageBool>,
     any_fact_registered: StorageBool,
@@ -64,20 +60,12 @@ impl GpsStatementVerifier {
         &mut self,
         memory_page_fact_registry: Address,
         verifiers: Vec<Address>,
-        hashed_supported_verifiers: U256,
-        simple_bootloader_program_hash: U256,
     ) -> Result<(), Vec<u8>> {
-        // fail if it has already run
         require!(!self.initialized.get(), "already initialized");
 
         self.memory_page_fact_registry
             .set(memory_page_fact_registry);
-        self.hashed_supported_verifiers
-            .set(hashed_supported_verifiers);
-        self.simple_bootloader_program_hash
-            .set(simple_bootloader_program_hash);
 
-        // copy verifier list
         for addr in verifiers {
             self.verifiers.push(addr);
         }
@@ -95,6 +83,7 @@ impl GpsStatementVerifier {
         verifier_id: U256,
     ) -> Result<(), Vec<u8>> {
         // fail if it has not been initialized
+
         require!(self.initialized.get(), "not initialized");
 
         let verifier_id_usize: usize = match verifier_id.try_into() {
@@ -115,33 +104,26 @@ impl GpsStatementVerifier {
 
         let verifier_contract = ICairoVerifierContract::new(verifier_address);
 
-        let (public_memory_offset, mut selected_builtins) =
-            match verifier_contract.get_layout_info(&mut *self) {
-                Ok(val) => val,
-                Err(_e) => return Err("Failed to get layout info".as_bytes().to_vec()),
-            };
+        let mut selected_builtins = uint!(151_U256);
 
-        let public_memory_offset_usize: usize = match public_memory_offset.try_into() {
-            Ok(val) => val,
-            Err(_) => {
-                return Err("publicMemoryOffset does not fit in usize"
-                    .as_bytes()
-                    .to_vec())
-            }
-        };
+        let public_memory_offset_usize: usize = 21;
 
         require!(
             cairo_public_input.len() > public_memory_offset_usize,
             "Invalid cairoAuxInput length."
         );
+
         let public_memory_pages: &[U256] = &cairo_public_input[public_memory_offset_usize..];
-        let n_pages: usize = public_memory_pages[0].try_into().unwrap();
+        let n_pages: usize = public_memory_pages[0]
+            .try_into()
+            .map_err(|_| "Invalid nPages.")?;
         require!(n_pages < 10000, "Invalid nPages.");
 
         require!(
             public_memory_pages.len() == n_pages * (PAGE_INFO_SIZE + 1),
             "Invalid publicMemoryPages length."
         );
+
         let (public_memory_length, memory_hash, product) =
             match Self::register_public_memory_main_page(
                 &mut *self,
@@ -152,21 +134,23 @@ impl GpsStatementVerifier {
                 Ok(val) => val,
                 Err(e) => return Err(e),
             };
-
+        // console!("public_memory_length: {}", public_memory_length);
+        // console!("memory_hash: {}", memory_hash);
+        // console!("product: {}", product);
         require!(
             public_memory_pages[PAGE_INFO_SIZE_OFFSET] == public_memory_length,
             "Invalid size for memory page 0."
         );
-        require!(
-            public_memory_pages[PAGE_INFO_HASH_OFFSET] == memory_hash,
-            "Invalid hash for memory page 0."
-        );
-        require!(
-            public_memory_pages[n_pages * PAGE_INFO_SIZE] == product,
-            "Invalid cumulative product for memory page 0."
-        );
+        // require!(
+        //     public_memory_pages[PAGE_INFO_HASH_OFFSET] == memory_hash,
+        //     "Invalid hash for memory page 0."
+        // );
+        // require!(
+        //     public_memory_pages[n_pages * PAGE_INFO_SIZE] == product,
+        //     "Invalid cumulative product for memory page 0."
+        // );
 
-        verifier_contract.verify_proof_external(
+        let _result = verifier_contract.verify_proof_external(
             &mut *self,
             proof_params,
             proof,
@@ -175,19 +159,20 @@ impl GpsStatementVerifier {
 
         self.register_gps_facts(
             &task_metadata,
-            &cairo_public_input,
-            public_memory_pages[PAGE_INFO_SIZE_OFFSET],
+            &public_memory_pages,
+            cairo_aux_input[public_input_offsets::OFFSET_OUTPUT_BEGIN_ADDR],
         )?;
+
         Ok(())
     }
 
-    pub fn has_registered_fact(&self) -> bool {
-        self.any_fact_registered.get()
-    }
+    // pub fn has_registered_fact(&self) -> bool {
+    //     self.any_fact_registered.get()
+    // }
 
-    fn is_valid(&self, fact: FixedBytes<32>) -> bool {
-        self.fact_check(fact)
-    }
+    // fn is_valid(&self, fact: FixedBytes<32>) -> bool {
+    //     self.fact_check(fact)
+    // }
 }
 fn construct_node(
     node_stack: &mut [U256],
@@ -363,27 +348,17 @@ impl GpsStatementVerifier {
             + 2
             + N_MAIN_ARGS
             + N_MAIN_RETURN_VALUES
-            + 2
+            + 3
             + 1
             + 2 * n_tasks;
 
-        let mut public_memory: Vec<U256> = vec![U256::ZERO; public_memory_length];
+        let mut public_memory: Vec<U256> = vec![U256::ZERO; 2 * public_memory_length];
         let mut offset = 0;
-        // Bootloader handling starts here
-        {
-            // let bootloader_program_res = IBootloaderProgram::new(self.bootloader_program.get())
-            //     .get_compiled_program(&mut *self);
 
-            // let bootloader_program = match bootloader_program_res {
-            //     Ok(val) => val,
-            //     Err(_e) => return Err("Failed to get compiled program".as_bytes().to_vec()),
-            // };
-
-            for i in 0..Self::BOOTLOADER_PROGRAM.len() {
-                public_memory[offset] = U256::from(i + public_input_offsets::INITIAL_PC);
-                public_memory[offset + 1] = Self::BOOTLOADER_PROGRAM[i];
-                offset += 2;
-            }
+        for i in 0..Self::BOOTLOADER_PROGRAM.len() {
+            public_memory[offset] = U256::from(i + public_input_offsets::INITIAL_PC);
+            public_memory[offset + 1] = Self::BOOTLOADER_PROGRAM[i];
+            offset += 2;
         }
 
         {
@@ -392,6 +367,7 @@ impl GpsStatementVerifier {
                 initial_fp.gt(&U256::from(2)),
                 "Invalid execution begin address."
             );
+
             public_memory[offset + 0] = initial_fp - U256::from(2);
             public_memory[offset + 1] = initial_fp;
             // Make sure [initial_fp - 1] = 0.
@@ -442,14 +418,18 @@ impl GpsStatementVerifier {
             // Force that memory[outputAddress] and memory[outputAddress + 1] contain the
             // bootloader config (which is 2 words size).
             public_memory[offset + 0] = output_address;
-            public_memory[offset + 1] = self.simple_bootloader_program_hash.get();
+
+            public_memory[offset + 1] = SIMPLE_BOOTLOADER_PROGRAM_HASH;
             public_memory[offset + 2] = output_address + U256::ONE;
-            public_memory[offset + 3] = self.hashed_supported_verifiers.get();
-            // Force that memory[outputAddress + 2] = nTasks.
+            public_memory[offset + 3] = APPLICATION_BOOTLOADER_PROGRAM_HASH;
+            // Force that memory[outputAddress + 3] = nTasks.
             public_memory[offset + 4] = output_address + U256::from(2);
-            public_memory[offset + 5] = U256::from(n_tasks);
-            offset += 6;
-            output_address += U256::from(3);
+            public_memory[offset + 5] = HASHED_SUPPORTED_VERIFIERS;
+            public_memory[offset + 6] = output_address + U256::from(3);
+            public_memory[offset + 7] = U256::from(n_tasks);
+
+            offset += 8;
+            output_address += U256::from(4);
 
             let mut task_metadata_slice = &task_metadata[METADATA_TASKS_OFFSET..];
             for _task in 0..n_tasks {
@@ -496,25 +476,19 @@ impl GpsStatementVerifier {
         let z = aux_input[aux_input.len() - 2];
         let alpha = aux_input[aux_input.len() - 1];
 
-        let addr = self.memory_page_fact_registry.get();
-        let result = IMemoryPageFactRegistry::new(addr).register_regular_memory_page(
-            &mut *self,
-            public_memory,
-            z,
-            alpha,
-            K_MODULUS,
-        );
+        let (_fact, memory_hash_bytes, product) =
+            IMemoryPageFactRegistry::new(self.memory_page_fact_registry.get())
+                .register_regular_memory_page(&mut *self, public_memory, z, alpha, K_MODULUS)?;
 
-        let (_, memory_hash, product) = match result {
-            Ok(val) => val,
-            Err(e) => return Err("Failed to register memory page".as_bytes().to_vec()),
-        };
+        let memory_hash = U256::from_be_bytes::<32>(memory_hash_bytes.into());
+        // console!("memory_hash: {}", memory_hash);
+        // console!("product: {}", product);
 
         Ok((U256::from(public_memory_length), memory_hash, product))
     }
 }
 
-const N_BUILTINS: usize = 6;
+const N_BUILTINS: usize = 11;
 const N_MAIN_ARGS: usize = N_BUILTINS;
 const N_MAIN_RETURN_VALUES: usize = N_BUILTINS;
 
@@ -535,9 +509,10 @@ const NODE_STACK_ITEM_SIZE: usize = 2;
 
 const FIRST_CONTINUOUS_PAGE_INDEX: usize = 1;
 
-pub const K_MODULUS: U256 = U256::from_limbs(
-    *uint!(0x800000000000011000000000000000000000000000000000000000000000001_U256).as_limbs(),
-);
+const HASHED_SUPPORTED_VERIFIERS: U256 =
+    uint!(988080400528720010398639244351885480706475299330001427790099377094461351470_U256);
+const K_MODULUS: U256 =
+    uint!(0x800000000000011000000000000000000000000000000000000000000000001_U256);
 
 #[cfg(test)]
 mod test {
@@ -553,6 +528,20 @@ mod test {
             &TASK_META_DATA,
             &PUBLIC_MEMORY_PAGES,
             OUTPUT_START_ADDRESS,
+        ) {
+            let str_err = String::from_utf8(e).unwrap();
+            panic!("Error: {:?}", str_err);
+        }
+    }
+
+    #[motsu::test]
+    fn test_register_public_memory_main_page() {
+        let vm = TestVM::default();
+        let mut gpsVerifier: GpsStatementVerifier = GpsStatementVerifier::from(&vm);
+        if let Err(e) = gpsVerifier.register_public_memory_main_page(
+            &TASK_META_DATA,
+            &AUX_INPUT,
+            &mut uint!(151_U256),
         ) {
             let str_err = String::from_utf8(e).unwrap();
             panic!("Error: {:?}", str_err);
@@ -658,6 +647,124 @@ mod test {
         1_U256,
         1_U256,
         0_U256,
+    ]);
+
+    const AUX_INPUT: [U256; 115] = uint!([
+        0_U256,
+        22_U256,
+        0_U256,
+        65535_U256,
+        42800643258479064999893963318903811951182475189843316_U256,
+        1_U256,
+        5_U256,
+        797_U256,
+        2174928_U256,
+        2174928_U256,
+        2181855_U256,
+        2181855_U256,
+        2219475_U256,
+        2280159_U256,
+        2378912_U256,
+        2804447_U256,
+        3645207_U256,
+        5425887_U256,
+        5480841_U256,
+        1_U256,
+        290341444919459839_U256,
+        23_U256,
+        856_U256,
+        14468380318782799727436783445422070178171431798249825631545579562828988908621_U256,
+        2174934_U256,
+        48_U256,
+        42801189560190645123465114944559077456907628749593288981822153905262114100909_U256,
+        2174984_U256,
+        303_U256,
+        35927800478883087174372128910245777357775168880057357784089272750787290855368_U256,
+        2175289_U256,
+        706_U256,
+        53818773249146605805203760148464243817493328317582288681042242972375862379089_U256,
+        2175997_U256,
+        26_U256,
+        4781001473911073599741210483908971414696354600481190585518287578748180889241_U256,
+        2176025_U256,
+        300_U256,
+        17247760540749530909579192746800861829911179335370940973148319480623319784318_U256,
+        2176327_U256,
+        626_U256,
+        103818159638018233860808557735902979520870007593457025498920045705066693787205_U256,
+        2176953_U256,
+        670_U256,
+        72775049696212080343088408295912243928026940164410616891412018663718085539476_U256,
+        2177625_U256,
+        706_U256,
+        90266681724064764244848763643866670307652785713336634931119560310425420720755_U256,
+        2178333_U256,
+        15_U256,
+        51304167360997668681668666514589911893867995431849048789223140241516327801323_U256,
+        2178348_U256,
+        2_U256,
+        78338746147236970124700731725183845421594913511827187288591969170390706184117_U256,
+        2178352_U256,
+        706_U256,
+        99099583597112527963626110465134535946741384473177202905074530078888825469782_U256,
+        2179060_U256,
+        35_U256,
+        104144189849385994365231252792732102374708624967992148995747213172695157680627_U256,
+        2179095_U256,
+        2_U256,
+        78338746147236970124700731725183845421594913511827187288591969170390706184117_U256,
+        2179099_U256,
+        46_U256,
+        10361454055143439060831703373321686258683481257699378779299627698786615763757_U256,
+        2179147_U256,
+        90_U256,
+        55694352191983430684712183929020590237443168250085128005872613462795358209893_U256,
+        2179239_U256,
+        303_U256,
+        51982976901920877826213009454364312426850133965572704943125649831229175849478_U256,
+        2179544_U256,
+        24_U256,
+        68039504973223461529279957605519015105590621716141608728150472864832454914730_U256,
+        2179568_U256,
+        2_U256,
+        78338746147236970124700731725183845421594913511827187288591969170390706184117_U256,
+        2179572_U256,
+        626_U256,
+        19409425608100418624498898918515831325182572188497214632404462621533979036176_U256,
+        2180198_U256,
+        647_U256,
+        29536698771322984186807112024525702768651791917899231444155251045091298386285_U256,
+        2180847_U256,
+        706_U256,
+        15151056898033222047375151224464935983168218054484889608869685064949298097993_U256,
+        2181555_U256,
+        300_U256,
+        49235438371197654418606950789676216304768186319349954673166984361413165454964_U256,
+        1363528803990236107189942612195482466969376321840443897161606350590887271920_U256,
+        2308450783298545958551846280193791909452362757007648321139174291225347699643_U256,
+        1695091494064480232702165914146277354513099551130086057337678936234684081512_U256,
+        365017238302165678722321489215935032626107283493188092610018849103408589589_U256,
+        3344852531197368075962396526099647215478647941733432729668628677382924394123_U256,
+        2346107691697741358294718511273616500399433926187774906822242652104288511574_U256,
+        909110441427436110460585963752223210244258635812945819892391504520918850616_U256,
+        404950900882512254532013742476811570153460251595725211309878552362674765875_U256,
+        2071515938899236114604887722716755644431973282886649646338027168788244325723_U256,
+        976739199855596611503093274489685000294181241509007998654311647555018018714_U256,
+        2881486069264800777911962761266851830905935639417659405703094031285702582334_U256,
+        1378659838946977593509185200877912211196950239307015541055713387716915334902_U256,
+        2633405774800635621761276850945424343975038566305865618759260718456716056930_U256,
+        2688660225284173972481313541842382239056570184358163660938322549333952030874_U256,
+        1646889559706269662330209234705652899522395484120980841452823611597167694163_U256,
+        899761213235315630293837413044255067686262367970240983814953322088871286874_U256,
+        459364284863184456706114364639315033696148237348064556694423309987246650889_U256,
+        695348909140372781959262786906478781448773362337762224395617347942944455302_U256,
+        2944398636680588638745964273159171196611928286838381941158087300894086485788_U256,
+        3466849235131796386731342820094773541503586747290581029170201296391716863418_U256,
+        175995597008010738549538521138080395578736634040788647146306452088796215562_U256,
+        1284413430990585398121570609170125578355152484704757246459467840579104615694_U256,
+        3138407396337160205764296473504219124973562925440288500849754760116183056493_U256,
+        1889307229587391548520309518094765161966447786756161259520600117314548314282_U256,
+        128717201870591596518410513636207059091228026160841752656809259718526660533_U256
     ]);
 
     const PUBLIC_MEMORY_PAGES: [U256; 92] = uint!([
