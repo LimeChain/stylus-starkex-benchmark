@@ -2,6 +2,12 @@ pk=0xb6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659
 
 MPFR_INPUT := $(shell tr '\n' ' ' < ./inputs/mpfr_from_gps.txt)
 
+# GPS inputs
+GPS_INPUT_PROOF_PARAMS := $(shell tr '\n' ' ' < ./inputs/gps_input_proof_params.txt)
+GPS_INPUT_PROOF := $(shell tr '\n' ' ' < ./inputs/gps_input_proof.txt)
+GPS_INPUT_TASK := $(shell tr '\n' ' ' < ./inputs/gps_input_task.txt)
+GPS_INPUT_AUX := $(shell tr '\n' ' ' < ./inputs/gps_input_aux.txt)
+
 rpc_url=http://localhost:8547
 contract=0xC2C0c3398915A2d2E9C33C186AbFEF3192Ee25E8
 
@@ -29,15 +35,28 @@ nitro-test-mpfr:
 	forge test --match-contract MemoryPageFactRegistryTest \
 	--fork-url nitro -vvv
 
-mpfr_contract=0xa39ffa43eba037d67a0f4fe91956038aba0ca386
+mpfr_contract=0x24d64cefe06627ebd605b050e7a8dec756f65547
 .PHONY: mpfr_register_mem_page
 mpfr_register_mem_page:
-	@cast send $(mpfr_contract) "registerRegularMemoryPage(uint256[],uint256,uint256,uint256)" \
+	@cast call $(mpfr_contract) "registerRegularMemoryPage(uint256[],uint256,uint256,uint256)" \
 	$(MPFR_INPUT) \
-	1923983994410949646266215635478491917832882166179969396251746181413976269170 \
-	2548115266380774413420845979236209449237376742700778263417656557146680537758 \
+	1889307229587391548520309518094765161966447786756161259520600117314548314282 \
+	128717201870591596518410513636207059091228026160841752656809259718526660533 \
 	3618502788666131213697322783095070105623107215331596699973092056135872020481 \
 	--rpc-url $(rpc_url) --private-key $(pk) -vvv --gas-limit 2000000
+
+gps_contract=0x95e7a50f9bd7189c9e8d52462410c921592e821e
+.PHONY: gps
+gps:
+	cast call $(gps_contract) "verifyProofAndRegister(uint256[], uint256[], uint256[], uint256[], uint256)" \
+	$(GPS_INPUT_PROOF_PARAMS) \
+	$(GPS_INPUT_PROOF) \
+	$(GPS_INPUT_TASK) \
+	$(GPS_INPUT_AUX) \
+	0 \
+	--rpc-url $(rpc_url) \
+	--private-key $(pk) -vvv --gas-limit 200000000000000000
+
 
 
 .PHONY: pederson_x_deploy
@@ -185,7 +204,7 @@ init_fri_contract:
 	0x0000000000000000000000000000000000000000 \
 	--rpc-url $(rpc_url) --private-key $(pk) -vvv --gas-limit 2000000
 
-cpu_contract=0xf1fede8133b032a1ebd78e107d510faec3e51365
+cpu_contract=0xd01207dd6eb9359f7572f658de0cb4ec98858da5
 .PHONY: init_cpu_contract
 init_cpu_contract:
 	@cast send $(cpu_contract) "init(address,address,address,address,address,address,address,address,address,address)" \
@@ -207,7 +226,7 @@ PUBLIC_INPUT := $(shell tr '\n' ' ' < ./inputs/public_input.txt)
 
 .PHONY: verify_proof
 verify_proof:
-	@cast send $(cpu_contract) "verifyProofExternal(uint256[],uint256[],uint256[])" \
+	cast call $(cpu_contract) "verifyProofExternal(uint256[],uint256[],uint256[])" \
 	$(PROOF_PARAMS) \
 	$(PROOF) \
 	$(PUBLIC_INPUT) \

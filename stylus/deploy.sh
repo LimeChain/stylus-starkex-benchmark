@@ -1,13 +1,8 @@
 #! /bin/bash
 RPC_URL_LOCAL="http://127.0.0.1:8547"
-RPC_URL_MAINNET="https://mainnet.arbitrum.io/rpc"
 RPC_URL=$RPC_URL_LOCAL
 TIMEOUT=2
 PK="0xb6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659"
-
-# Mainnet addresses
-fri_statement_verifier_address="0x30EfaAA99f8eFe310D9FdC83072e2a04c093d400"
-merkle_statement_verifier_address="0x32a91Ff604AB2aDCd832e91D68b2f3f25358FdAd"
 
 # Deployment order:
 contracts=(
@@ -25,11 +20,11 @@ contracts=(
   constraint-poly-preparer
   constraint-poly-finalizer
   constraint-poly
-    fri-statement-verifier
+  fri-statement-verifier
 # - Main contracts ZK logic contracts:
-#   mpfr
+  mpfr
   cpu-verifier
-#   gps
+  gps-sv
 )
 
 function check_devnode() {
@@ -77,6 +72,8 @@ function deploy_contract() {
     local deploy_args=(--private-key="$PK" --endpoint="$RPC_URL")
     if [ "$name" == "cpu-verifier" ] \
     || [ "$name" == "verifier-init" ] \
+    || [ "$name" == "gps-sv" ] \
+    || [ "$name" == "mpfr" ] \
     || [ "$name" == "fri-statement-verifier" ]; then
         deploy_args+=(--no-verify)
     fi
@@ -118,14 +115,14 @@ check_dependencies
 
 
 # If local, deploy mock-provider and use it for the verifiers
-if [ "$RPC_URL" == "$RPC_URL_LOCAL" ]; then
-    deploy_contract "mock-provider"
-    merkle_statement_verifier_address=$mock_provider_address
-    fri_statement_verifier_address=$mock_provider_address
-    echo "Using mock providers for the verifier"
-    echo "✅ Merkle statement contract address: $merkle_statement_verifier_address"
-    echo "✅ Fri statement contract address: $fri_statement_verifier_address"
-fi
+
+deploy_contract "mock-provider"
+merkle_statement_verifier_address=$mock_provider_address
+fri_statement_verifier_address=$mock_provider_address
+echo "Using mock providers for the verifier"
+echo "✅ Merkle statement contract address: $merkle_statement_verifier_address"
+echo "✅ Fri statement contract address: $fri_statement_verifier_address"
+
 
 
 for name in "${contracts[@]}"; do
@@ -142,6 +139,18 @@ for name in "${contracts[@]}"; do
             exit 1
         fi
         echo "✅ Successfully set addresses on $constraint_poly_address"
+    elif [ "$name" == "gps-sv" ]; then
+        # cast send 0xb1e93b9216703f7c7e8b8c408f5849cea7a18c82 "init(address,address[])" 0x24d64cefe06627ebd605b050e7a8dec756f65547 '[0xd01207dd6eb9359f7572f658de0cb4ec98858da5]' --rpc-url $rpc_url --private-key=$pk
+            echo "Setting addresses on $name via cast send..."
+            CAST_OUT=$(cast send $gps_sv_address "init(address,address[])" \
+                $mpfr_address \
+                "[$cpu_verifier_address]" \
+                --rpc-url=$RPC_URL --private-key=$PK | grep "1 (success)")
+        if [ -z "$CAST_OUT" ]; then
+            echo "❌ Failed to call init on $gps_sv_address"
+            exit 1
+        fi
+        echo "✅ Successfully set addresses on $gps_sv_address"
     elif [ "$name" == "fri-statement-verifier" ]; then
         echo "Setting addresses on $name via cast send..."
         CAST_OUT=$(cast send $fri_statement_verifier_address "init(address,address,address)" \
