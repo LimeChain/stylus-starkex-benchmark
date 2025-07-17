@@ -7,6 +7,7 @@ PK="0xb6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659"
 # Deployment order:
 contracts=(
 # - Auxiliary contracts:
+  mpfr
   pedersen-hp-x-c
   pedersen-hp-y-c
   poseidon-frk-0-col
@@ -22,7 +23,6 @@ contracts=(
   constraint-poly
   fri-statement-verifier
 # - Main contracts ZK logic contracts:
-  mpfr
   cpu-verifier
   gps-sv
 )
