@@ -112,7 +112,6 @@ make deploy
 /// 4. Run full flow Call
 make gps
 /// 5. Get the gas usage from the terminal
-make gps_estimate
 ```
 
 ### Poseidon AUX contracts

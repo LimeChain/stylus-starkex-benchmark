@@ -55,19 +55,8 @@ gps:
 	$(GPS_INPUT_AUX) \
 	0 \
 	--rpc-url $(rpc_url) \
-	--private-key $(pk) -vvv --gas-limit 200000000000000000
+	--private-key $(pk) -vvv --gas-limit 10000000
 
-
-.PHONY: gps_estimate
-gps_estimate:
-	cast estimate $(gps_contract) "verifyProofAndRegister(uint256[], uint256[], uint256[], uint256[], uint256)" \
-	$(GPS_INPUT_PROOF_PARAMS) \
-	$(GPS_INPUT_PROOF) \
-	$(GPS_INPUT_TASK) \
-	$(GPS_INPUT_AUX) \
-	0 \
-	--rpc-url $(rpc_url) \
-	--private-key $(pk) -vvv --gas-limit 200000000000000000
 
 .PHONY: pederson_x_deploy
 pederson_x_deploy:
