@@ -1,42 +1,33 @@
 [package]
-name = "memory-page-fact-registry"
+name = "mock-provider"
 version = "0.1.11"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/OffchainLabs/stylus-hello-world"
 repository = "https://github.com/OffchainLabs/stylus-hello-world"
-keywords = ["arbitrum", "ethereum", "stylus", "alloy"]
-description = "Stylus memory page fact registry implementation"
+keywords = ["arbitrum", "ethereum", "stylus", "alloy", "mock-provider"]
+description = "Mock provider for stylus"
 
 [dependencies]
-alloy-primitives = { version = "=0.8.20" }
+stylus-sdk = { version = "0.8.4", features = ["mini-alloc", "debug"] }
+hex = "0.4.3"
+alloy-primitives = "=0.8.20"
 alloy-sol-types = "=0.8.20"
 mini-alloc = "0.8.4"
-hex = "0.4.3"
 dotenv = "0.15.0"
-tiny-keccak = { version = "2.0.0", features = ["keccak"] }
-stylus-sdk = { version = "0.8.4", default-features = false, features = [
-    "mini-alloc",
-] }
-
-# Motsu (持つ)  test config
-# stylus-sdk = { version = "0.8.4", default-features = false, features = [
-#     "mini-alloc",
-# ] }
 
 [dev-dependencies]
 tokio = { version = "1.12.0", features = ["full"] }
 ethers = "2.0"
 eyre = "0.6.8"
-motsu = "0.8.0"
-test-utils = { path = "../test-utils" }
+stylus-sdk = { version = "0.8.4", features = ["stylus-test"] }
 
 [features]
 export-abi = ["stylus-sdk/export-abi"]
 debug = ["stylus-sdk/debug"]
 
 [[bin]]
-name = "memory-page-fact-registry"
+name = "mock-provider"
 path = "src/main.rs"
 
 [lib]
@@ -47,6 +38,7 @@ codegen-units = 1
 strip = true
 lto = true
 panic = "abort"
-opt-level = "s"
+
 # If you need to reduce the binary size, it is advisable to try other
 # optimization levels, such as "s" and "z"
+opt-level = 3
