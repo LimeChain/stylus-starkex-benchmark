@@ -27,6 +27,50 @@ There are a few interesting moments we found out:
 - The logic uses layout7 which does not exist in the `evm-verifier` repository. We found it from [here](https://github.com/Draply/Stark-verifier/tree/master/src/verifier/cpu/layout7).
 - The logic uses poseidon arithmetic which does not exist in the `evm-verifier` repository. We found it from [here](https://github.com/Bisht13/post-quantum-eth-security/tree/main/contracts/periodic_columns).
 
+## Contracts dependencies structure
+
+```mermaid
+graph TD
+    %% Main entry point
+    GPS[gps-sv<br/>Main GPS Statement Verifier] --> MPFR[mpfr<br/>Memory Page Fact Registry]
+    GPS --> CPU[cpu-verifier<br/>CPU Verifier]
+    
+    %% CPU Verifier dependencies
+    CPU --> CONSTRAINT[constraint-poly<br/>Constraint Polynomial]
+    CPU --> PEDERSEN_X[pedersen-hp-x-c<br/>Pedersen Hash Points X]
+    CPU --> PEDERSEN_Y[pedersen-hp-y-c<br/>Pedersen Hash Points Y]
+    CPU --> POSEIDON_0[poseidon-frk-0-col<br/>Poseidon Full Round Key 0]
+    CPU --> POSEIDON_1[poseidon-frk-1-col<br/>Poseidon Full Round Key 1]
+    CPU --> POSEIDON_2[poseidon-frk-2-col<br/>Poseidon Full Round Key 2]
+    CPU --> POSEIDON_P0[poseidon-prk-0-col<br/>Poseidon Partial Round Key 0]
+    CPU --> POSEIDON_P1[poseidon-prk-1-col<br/>Poseidon Partial Round Key 1]
+    CPU --> INIT[verifier-init<br/>Verifier Initialization]
+    CPU --> FRI[fri-statement-verifier<br/>FRI Statement Verifier]
+    
+    %% Constraint Polynomial dependencies
+    CONSTRAINT --> PREP[constraint-poly-preparer<br/>Constraint Poly Preparer]
+    CONSTRAINT --> FIN[constraint-poly-finalizer<br/>Constraint Poly Finalizer]
+    
+    %% FRI Statement Verifier dependencies
+    FRI --> FriStatementVerifier
+    FRI --> MerkleStatementVerifier
+    FRI --> OODS[oods<br/>Out of Domain Sampling]
+    
+    %% Styling
+    classDef mainContract fill:#1976d2,stroke:#0d47a1,stroke-width:4px,color:#ffffff
+    classDef computeContract fill:#7b1fa2,stroke:#4a148c,stroke-width:3px,color:#ffffff
+    classDef auxContract fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#ffffff
+    classDef mockContract fill:#f57c00,stroke:#e65100,stroke-width:3px,color:#ffffff
+    
+    class GPS mainContract
+    class CPU,MPFR computeContract
+    class CONSTRAINT,OODS,FRI computeContract
+    class PREP,FIN computeContract
+    class PEDERSEN_X,PEDERSEN_Y,POSEIDON_0,POSEIDON_1,POSEIDON_2,POSEIDON_P0,POSEIDON_P1,INIT,MerkleStatementVerifier,FriStatementVerifier auxContract
+    class MOCK_FRI,MOCK_MERKLE mockContract
+```
+
+## Gas costs
 > [!IMPORTANT]
 > The provided numbers below are **L2_GAS** gas costs, because that's what's most important, since it represents the actual computational cost of the transactions, and not the `L1` calldata fees that are always fluctuating.
 
@@ -48,16 +92,8 @@ There are a few interesting moments we found out:
 | gps(full flow) | 4_286_090 | 2_137_930  | +2_148_160(100.5%% more) | 7_505_490 | 4_523_567 | +2_981_923(65% more) |
 
 
-## Specific cases
-
-### MemoryPageFactRegistry (storage + calculations)
-
-| Function  | Stylus Gas | Solidity Gas | Difference | % Difference |
-|-----------|---------------|-----------------|-----------------|--------------|
-| deploy | **2'919'340** | **864'926** | +2'054'414 | **237.5% more** |
-| register_regular_memory_page | **1'145'908** | **675'308** | +470'600 | **69.6% more** |
-
-**How to run**
+## How to run
+### Deploy
 > [!IMPORTANT] Need to have a running docker
 
 ```bash
@@ -66,44 +102,63 @@ git clone https://github.com/OffchainLabs/nitro-devnode.git
 cd nitro-devnode
 bash ./run-dev-node.sh
 
-/// 2. Deploy & Call Stylus 
-make stylus-deploy-mpfr
-/// 2.1 Open Makefile and change "contract" with the deployed contract address
-make mpfr_register_mem_page
-/// 2.2 Get the gas usage from the terminal
+/// 2. Run full flow Deployment
+make deploy
+```
+### Gps Full flow
+> [!IMPORTANT] Extract contract address from the deployment step and use it in the next steps
+```bash
+/// 3. Open Makefile and change 'gps_contract' value with the deployed contract address
+/// 4. Run full flow Call
+make gps
+/// 5. Get the gas usage from the terminal
+make gps_estimate
+```
 
-/// 3. Deploy & Call Solidity 
-make solidity-deploy-mpfr
-/// 3.1 Open Makefile and change "contract" with the deployed contract address
-make mpfr_register_mem_page
+### Poseidon AUX contracts
+> [!IMPORTANT] Extract Poseidon contracts addresses from the deployment step and use it in the next steps
+
+```bash
+/// 3.1 Open Makefile and change "poseidon_contract" with the deployed contract address
+make poseidon
 /// 3.2 Get the gas usage from the terminal
 ```
 
-### PoseidonPoseidonFullRoundKey0Column (pure calculations)
-
-| Function  | Stylus Gas | Solidity Gas | Difference | % Difference |
-|-----------|---------------|-----------------|-----------------|--------------|
-| deploy | **1'860'416** | **216'778** | +1'643'638 | **758.2% more** |
-| compute | **37'459** | **22'068** | +15'391 | **69.7% more** |
-
-**How to run**
-> [!IMPORTANT] Need to have a running docker
+### Pedersen AUX contracts
+> [!IMPORTANT] Extract Pedersen contracts addresses from the deployment step and use it in the
+next steps
 
 ```bash
-/// 1. Run dev node
-git clone https://github.com/OffchainLabs/nitro-devnode.git
-cd nitro-devnode
-bash ./run-dev-node.sh
+/// 3.1 Open Makefile and change "pedersen_contract" with the deployed contract address
+make pedersen
+/// 3.2 Get the gas usage from the terminal
+```
 
-/// 2. Deploy & Call Stylus 
-make stylus-deploy-poseidon-full-0
-/// 2.1 Open Makefile and change "contract" with the deployed contract address
-make ps_0_full_compute
-/// 2.2 Get the gas usage from the terminal
+### Oods (Out of Domain Sampling)
+> [!IMPORTANT] Extract Oods contract address from the deployment step and use it in the
+next steps
 
-/// 3. Deploy & Call Solidity 
-make solidity-deploy-poseidon-full-0
+```bash
+/// 3.1 Open Makefile and change "oods_contract" with the deployed contract address
+make oods
+/// 3.2 Get the gas usage from the terminal
+```
+
+### Constraint Polynomial
+> [!IMPORTANT] Extract Constraint Polynomial contract address from the deployment step and use it in the next steps
+
+```bash
+/// 3.1 Open Makefile and change "poly_contract" with the deployed contract address
+make constraint_poly_full
+/// 3.2 Get the gas usage from the terminal
+make constraint_poly_full_estimate
+```
+
+### MemoryPageFactRegistry (storage + calculations)
+> [!IMPORTANT]  Extract contract address from the deployment step and use it in the next steps
+
+```bash
 /// 3.1 Open Makefile and change "contract" with the deployed contract address
-make ps_0_full_compute
+make mpfr_register_mem_page
 /// 3.2 Get the gas usage from the terminal
 ```

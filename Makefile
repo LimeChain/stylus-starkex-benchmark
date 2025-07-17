@@ -45,10 +45,10 @@ mpfr_register_mem_page:
 	3618502788666131213697322783095070105623107215331596699973092056135872020481 \
 	--rpc-url $(rpc_url) --private-key $(pk) -vvv --gas-limit 2000000
 
-gps_contract=0x95e7a50f9bd7189c9e8d52462410c921592e821e
+gps_contract=0x05d25474a141659baa4497afa7fa4a6932632a5a
 .PHONY: gps
 gps:
-	cast call $(gps_contract) "verifyProofAndRegister(uint256[], uint256[], uint256[], uint256[], uint256)" \
+	cast send $(gps_contract) "verifyProofAndRegister(uint256[], uint256[], uint256[], uint256[], uint256)" \
 	$(GPS_INPUT_PROOF_PARAMS) \
 	$(GPS_INPUT_PROOF) \
 	$(GPS_INPUT_TASK) \
@@ -58,6 +58,16 @@ gps:
 	--private-key $(pk) -vvv --gas-limit 200000000000000000
 
 
+.PHONY: gps_estimate
+gps_estimate:
+	cast estimate $(gps_contract) "verifyProofAndRegister(uint256[], uint256[], uint256[], uint256[], uint256)" \
+	$(GPS_INPUT_PROOF_PARAMS) \
+	$(GPS_INPUT_PROOF) \
+	$(GPS_INPUT_TASK) \
+	$(GPS_INPUT_AUX) \
+	0 \
+	--rpc-url $(rpc_url) \
+	--private-key $(pk) -vvv --gas-limit 200000000000000000
 
 .PHONY: pederson_x_deploy
 pederson_x_deploy:
@@ -66,14 +76,6 @@ pederson_x_deploy:
 	--private-key $(nitro_pk) \
 	--broadcast
 
-# == Logs ==
-#   PedersenHashPointsXColumn deployed at: 0x525c2aBA45F66987217323E8a05EA400C65D06DC - 32712
-#   PedersenHashPointsYColumn deployed at: 0x85D9a8a4bd77b9b5559c1B7FCb8eC9635922Ed49
-#   PoseidonPoseidonFullRoundKey0Column deployed at: 0x4A2bA922052bA54e29c5417bC979Daaf7D5Fe4f4 - 22068
-#   PoseidonPoseidonFullRoundKey1Column deployed at: 0x4Af567288e68caD4aA93A272fe6139Ca53859C70
-#   PoseidonPoseidonFullRoundKey2Column deployed at: 0x3DF948c956e14175f43670407d5796b95Bb219D8
-#   PoseidonPoseidonPartialRoundKey0Column deployed at: 0x75E0E92A79880Bd81A69F72983D03c75e2B33dC8 - 23252
-#   PoseidonPoseidonPartialRoundKey1Column deployed at: 0xF5FfD11A55AFD39377411Ab9856474D2a7Cb697e
 .PHONY: periodic_columns_deploy
 periodic_columns_deploy:
 	forge script script/PeriodicColumns.s.sol:PeriodicColumns \
@@ -109,41 +111,23 @@ cpu_constraint_poly_test:
 	--fork-url anvil  -vvv --gas-limit 2000000000
 
 per_col_contract=0x72219e4c1b76276253a852ab058374d1dd5529be
-# cumulativeGasUsed    23252
 .PHONY: poseidonPartialRoundKey0ColumnCast
 poseidonPartialRoundKey0ColumnCast:
 	cast send $(contract) "compute(uint256)" \
 	513761785516736576210258345954495650460389361631034617172115002511570125974 \
 	--rpc-url ${rpc_url} --private-key $(pk) -vvv --gas-limit 2000000
 
-# frk0_contract=0x4A2bA922052bA54e29c5417bC979Daaf7D5Fe4f4
-frk0_contract=0x47cec0749bd110bc11f9577a70061202b1b6c034
-# cumulativeGasUsed
-# Solidity:    22068
-# Stylus: 37459
-# -- Partial round key 0 column
-# cumulativeGasUsed
-# Solidity: 23252
-# Stylus: 50564
-# PoseidonPoseidonPartialRoundKey0Column
-# Stylus: 50294
-.PHONY: poseidonPoseidonFullRoundKey0ColumnCast
-poseidonPoseidonFullRoundKey0ColumnCast:
-	cast send $(frk0_contract) "compute(uint256)" \
+poseidon_contract=0x47cec0749bd110bc11f9577a70061202b1b6c034
+.PHONY: poseidon
+poseidon:
+	cast send $(poseidon_contract) "compute(uint256)" \
 	513761785516736576210258345954495650460389361631034617172115002511570125974 \
 	--rpc-url ${rpc_url} --private-key $(pk) -vvv --gas-limit 2000000
 
 
 pedersen_contract=0x8e1308925a26cb5cF400afb402d67B3523473379
-# cumulativeGasUsed    
-# PedersenHashPointsXColumn
-# Solidity: 32712
-# Stylus: 151995
-# PedersenHashPointsYColumn
-# Solidity: 32712
-# Stylus: 152012
-.PHONY: pedersen_cast
-pedersen_cast:
+.PHONY: pedersen
+pedersen:
 	cast send $(pedersen_contract) "compute(uint256)" \
 	2502371038239847331946845555940821891939660827069539886818086403686260021246 \
 	--rpc-url nitro --private-key $(nitro_pk) -vvv --gas-limit 2000000
@@ -159,9 +143,13 @@ pedersen_cast_call:
 poly_contract=0x05C98569CA566a2035b87dE7d1b623C950798035
 fin_contract=0x525c2aba45f66987217323e8a05ea400c65d06dc
 preparer_contract=0x4a2ba922052ba54e29c5417bc979daaf7d5fe4f4
-.PHONY: constraint_poly_cast_full
-constraint_poly_cast_full:
+.PHONY: constraint_poly_full
+constraint_poly_full:
 	cast call $(poly_contract) $$(cat stylus/testdata/poly_input.hex)  --rpc-url nitro
+
+.PHONY: constraint_poly_full_estimate
+constraint_poly_full_estimate:
+	cast estimate $(poly_contract) $$(cat stylus/testdata/poly_input.hex) --rpc-url nitro --private-key $(pk) -vvv --gas-limit 2000000
 
 .PHONY: constraint_poly_setup
 constraint_poly_setup:
@@ -237,20 +225,10 @@ verify_proof:
 test:
 	cd ./test && bash ./test.sh
 
-# 0xd9bF5428C4a93aA2DEdd0161F299071b9D1FEc0a
-# oods_contract=0x5FbDB2315678afecb367f032d93F642f64180aa3
-oods_contract=0x4A3635EEd2C38cB0Eac2D52ddE9CFaB49Be48C17
-# OOds call
-# estimate:
-# Solidity: 823170
-.PHONY: oods_call_mn
-oods_call_mn:
-	@cast estimate -vvv $(oods_contract) $$(cat stylus/testdata/oods_input.hex ) --rpc-url https://ethereum-rpc.publicnode.com
-
-oods_contract_nitro=0x4a2ba922052ba54e29c5417bc979daaf7d5fe4f4
-.PHONY: oods_call_nitro
-oods_call_nitro:
-	@cast estimate -vvv $(oods_contract_nitro) $$(cat stylus/testdata/oods_input.hex ) --rpc-url nitro
+oods_contract=0x4a2ba922052ba54e29c5417bc979daaf7d5fe4f4
+.PHONY: oods
+oods:
+	@cast send -vvv $(oods_contract) $$(cat stylus/testdata/oods_input.hex ) --rpc-url nitro --private-key $(pk) --gas-limit 2000000
 
 .PHONY: deploy
 deploy:
