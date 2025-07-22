@@ -117,6 +117,28 @@ make gps
 /// 5. Get the gas usage from the terminal
 ```
 
+### CPU Verifier
+> [!IMPORTANT] Extract CPU Verifier contract address from the deployment step and use it in
+```bash
+/// 3.1 Go to test directory and make test.sh executable
+cd test/
+chmod +x test.sh
+/// 3.2 Change "cpu_contract" in test.sh file with the deployed contract address
+/// 3.3 Run the test.sh script
+./test.sh
+/// 3.4 Expect the output to be "----------CORRECT----------"
+```
+
+### Poseidon AUX contracts
+> [!IMPORTANT] Extract Poseidon contracts addresses from the deployment step and use it in the next steps
+
+```bash
+/// 3.1 Open Makefile and change "poseidon_contract" with the deployed contract address
+make poseidon
+/// 3.1 Go to test directory
+cd test/
+/// 3.2 Put the CPU Verifier contract address in the test file
+
 ### Poseidon AUX contracts
 > [!IMPORTANT] Extract Poseidon contracts addresses from the deployment step and use it in the next steps
 
@@ -163,4 +185,12 @@ make constraint_poly_full_estimate
 /// 3.1 Open Makefile and change "contract" with the deployed contract address
 make mpfr_register_mem_page
 /// 3.2 Get the gas usage from the terminal
+```
+
+## Unit tests
+Every contract from ./stylus has its own unit tests, which can be run with
+```bash
+/// e.g. for pedersen-hp-x-c contract
+cd ./stylus/pedersen-hp-x-c
+cargo test --release
 ```
