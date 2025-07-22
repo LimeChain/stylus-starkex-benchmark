@@ -74,6 +74,8 @@ graph TD
 > [!IMPORTANT]
 > The provided numbers below are **L2_GAS** gas costs, because that's what's most important, since it represents the actual computational cost of the transactions, and not the `L1` calldata fees that are always fluctuating.
 
+
+
 | contract\gas cost | Deploy Stylus | Deploy Solidity | Deploy Diff | Call Stylus | Call Solidity | Call Diff |
 |-----------|---------------|-----------------|-----------------|--------------|--------------|--------------|
 | pedersen-hp-x-c | 5_393_222 | 4_230_105 | +1_163_117(27.5% more) | 151_995 | 32_712 | +119_283(364.6% more) |
@@ -88,9 +90,10 @@ graph TD
 | constraint-poly-finalizer | 4_436_374 | - | - | - | - | - |
 | constraint-poly | 3_316_404 | 2_311_631 | 1_004_773(43.46% more) | 624_920 | 304_110 | +320_810(105.4% more) |
 | mpfr | 4_296_904 | 665_328 | +3_631_576(545.8% more) | 1_151_619 | 675_308 | +476_311(70.5% more) |
-| cpu-verifier | 5_407_239 | 4_370_831 | +1_036_408(23,7% more) | 470_382 |  |  |
+| cpu-verifier | 5_407_239 | 4_370_831 | +1_036_408(23,7% more) | 470_382 | 935_831 | -465_449(49% less) |
 | gps(full flow) | 4_286_090 | 2_137_930  | +2_148_160(100.5%% more) | 7_505_490 | 4_523_567 | +2_981_923(65% more) |
 
+Original gas costs were taken from the [Transaction Trace](https://app.sentio.xyz/tx/1/0x3f4e2a13b6c2356ad7f2c2af62e2eb0fb7bee626a563ccb49a8f73c684bd6eef/debug?trace=145364).
 
 ## How to run
 ### Deploy
